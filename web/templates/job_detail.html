@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title }} — JobScrapper{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto;">
+  <div style="margin-bottom: 1rem;">
+    <a href="/jobs" style="color: var(--muted); font-size: 0.85rem;">← Retour aux offres</a>
+  </div>
+
+  <div class="card">
+    <div class="detail-header">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+        <div>
+          <h1 style="font-size: 1.5rem;">{{ job.title }}</h1>
+          {% if job.company %}<p style="color: var(--muted); margin-top: 0.3rem;">{{ job.company }}</p>{% endif %}
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <span class="badge badge-{{ job.source }}">{{ job.source }}</span>
+          <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-field">
+        <label>📍 Localisation</label>
+        <p>{{ job.city or '—' }}</p>
+      </div>
+      <div class="detail-field">
+        <label>💰 Salaire</label>
+        <p>{{ job.salary or '—' }}</p>
+      </div>
+      <div class="detail-field">
+        <label>📄 Type de contrat</label>
+        <p>{{ job.contract_type or '—' }}</p>
+      </div>
+      <div class="detail-field">
+        <label>🎓 Niveau d'études</label>
+        <p>{{ job.education or '—' }}</p>
+      </div>
+    </div>
+
+    {% if job.description %}
+    <div style="margin-top: 1rem;">
+      <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">Description</label>
+      <div class="description-box">{{ job.description }}</div>
+    </div>
+    {% endif %}
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+      <a href="{{ job.url }}" target="_blank" class="btn btn-ghost">🔗 Voir l'annonce originale</a>
+
+      {% if job.status != 'liked' %}
+      <form method="post" action="/jobs/{{ job.id }}/status">
+        <input type="hidden" name="status" value="liked">
+        <input type="hidden" name="redirect_to" value="/jobs/{{ job.id }}">
+        <button type="submit" class="btn btn-success">❤ Sélectionner</button>
+      </form>
+      {% endif %}
+
+      {% if job.status != 'ignored' %}
+      <form method="post" action="/jobs/{{ job.id }}/status">
+        <input type="hidden" name="status" value="ignored">
+        <input type="hidden" name="redirect_to" value="/jobs">
+        <button type="submit" class="btn btn-ghost">✕ Ignorer</button>
+      </form>
+      {% endif %}
+
+      {% if job.status == 'liked' %}
+      <a href="/jobs/{{ job.id }}/cv" class="btn btn-primary">📄 Générer mon CV pour ce poste</a>
+      {% endif %}
+
+      <form method="post" action="/jobs/{{ job.id }}/delete" style="margin-left: auto;">
+        <input type="hidden" name="redirect_to" value="/jobs">
+        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Supprimer cette offre ?')">🗑 Supprimer</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

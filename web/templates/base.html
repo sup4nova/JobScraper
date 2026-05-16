@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}JobScrapper{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav>
+  <span class="nav-brand">⚡ JobScrapper</span>
+  <div class="nav-links">
+    <a href="/">Scraper</a>
+    <a href="/jobs">Toutes les offres</a>
+    <a href="/jobs?status=liked">❤ Sélectionnées</a>
+  </div>
+</nav>
+
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+
+<div class="status-bar" id="statusBar">
+  <div class="spinner" id="statusSpinner"></div>
+  <span id="statusMsg"></span>
+</div>
+
+<script>
+  // Poll scrape status
+  let polling = false;
+
+  function startPolling() {
+    if (polling) return;
+    polling = true;
+    pollStatus();
+  }
+
+  async function pollStatus() {
+    try {
+      const res = await fetch('/scrape/status');
+      const data = await res.json();
+      const bar = document.getElementById('statusBar');
+      const msg = document.getElementById('statusMsg');
+      const spinner = document.getElementById('statusSpinner');
+
+      if (data.running) {
+        bar.classList.add('visible');
+        msg.textContent = data.message;
+        setTimeout(pollStatus, 2000);
+      } else if (data.message) {
+        bar.classList.add('visible');
+        spinner.style.display = 'none';
+        msg.textContent = data.message;
+        setTimeout(() => { bar.classList.remove('visible'); spinner.style.display = ''; polling = false; }, 4000);
+      } else {
+        bar.classList.remove('visible');
+        polling = false;
+      }
+    } catch {
+      polling = false;
+    }
+  }
+
+  // auto-start polling if scraping
+  document.addEventListener('DOMContentLoaded', () => {
+    {% block page_script %}{% endblock %}
+  });
+</script>
+{% block extra_script %}{% endblock %}
+</body>
+</html>
