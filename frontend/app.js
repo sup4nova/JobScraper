@@ -449,7 +449,8 @@ const App = {
       return text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/>/g, "&gt;")
+        .replace(/\*\*([^*]+)\*\*/g, (_, p1) => `<strong>${p1}</strong>`)
         .replace(/\n/g, "<br>");
     },
 
