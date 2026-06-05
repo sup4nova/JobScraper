@@ -1,14 +1,10 @@
-FROM node:20-alpine AS build
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+
+# Copie des fichiers statiques (l'app principale n'utilise pas Vite)
+COPY index.html app.js data.js mascot.js styles.css /usr/share/nginx/html/
+COPY public/ /usr/share/nginx/html/public/
+
+# Config nginx (gzip, cache, security headers, SPA routing)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
