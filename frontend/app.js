@@ -146,29 +146,16 @@ const App = {
       }
     }
 
-    // ── Sync profil → backend ──────────────────────────────
+    // ── Sync profil → localStorage (demo) ─────────────────
     async function syncProfileToBackend() {
-      const profil = {
-        name:          profile.name,
-        title:         profile.poste,
-        email:         profile.email,
-        phone:         "",
-        location:      profile.ville,
-        github:        "",
-        summary:       `Recherche un poste de ${profile.poste || "?"} en ${(profile.remote || []).join(", ") || "?"}. Contrats visés : ${(profile.contrats || []).join(", ")}.`,
-        skills:        profile.competences,
-        experience:    profile.experience,
-        education_text: "",
-      };
-      try {
-        await fetch("http://localhost:8000/api/profile", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(profil),
-        });
-      } catch (e) {
-        console.error("Erreur sync profil:", e);
-      }
+      lsSave("demo_profil", {
+        name:       profile.name,
+        title:      profile.poste,
+        email:      profile.email,
+        location:   profile.ville,
+        skills:     profile.competences,
+        experience: profile.experience,
+      });
     }
 
     // ── Scraping ───────────────────────────────────────────
@@ -177,44 +164,31 @@ const App = {
       scene.value         = "scraping";
       mascotState.value   = "scraping";
       scrapeProgress.value = 10;
-      scrapeStatus.value  = "Lancement du scraping...";
+      scrapeStatus.value  = "Simulation du scraping...";
 
-      try {
-        const res = await fetch("http://localhost:8000/api/scrape", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            poste:  profile.poste,
-            ville:  profile.ville,
-            limite: 20,
-          }),
-        });
+      // Demo : données mockées depuis data.js, délai simulé
+      scrapeStatus.value   = "Récupération des offres LinkedIn & Indeed...";
+      scrapeProgress.value = 40;
+      await new Promise(r => setTimeout(r, 1400));
+      scrapeProgress.value = 80;
+      scrapeStatus.value   = "Tri et déduplication...";
+      await new Promise(r => setTimeout(r, 600));
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const freshJobs = [...(window.MOCK_JOBS || [])];
 
-        const data      = await res.json();
-        const freshJobs = data.jobs ?? [];
-        console.log(`>>> ${freshJobs.length} jobs reçus`, freshJobs[0]);
-
-        // Merge avec l'historique local (dedup par URL)
-        const stored     = lsLoad(LS.jobs, []);
-        const storedUrls = new Set(stored.map(j => j.url));
-        const merged     = [...stored];
-        for (const j of freshJobs) {
-          if (!storedUrls.has(j.url)) merged.push(j);
-        }
-        lsSave(LS.jobs, merged);
-
-        // N'afficher que les jobs pas encore swipés
-        const swipedUrls = new Set(swipes.value.map(s => s.job.url));
-        jobs.value       = merged.filter(j => !swipedUrls.has(j.url));
-        scrapeStatus.value = `${jobs.value.length} offres à découvrir !`;
-
-      } catch (e) {
-        console.error(e);
-        scrapeStatus.value = "Erreur de connexion au backend.";
-        return;
+      // Merge avec l'historique local (dedup par URL)
+      const stored     = lsLoad(LS.jobs, []);
+      const storedUrls = new Set(stored.map(j => j.url));
+      const merged     = [...stored];
+      for (const j of freshJobs) {
+        if (!storedUrls.has(j.url)) merged.push(j);
       }
+      lsSave(LS.jobs, merged);
+
+      // N'afficher que les jobs pas encore swipés
+      const swipedUrls = new Set(swipes.value.map(s => s.job.url));
+      jobs.value       = merged.filter(j => !swipedUrls.has(j.url));
+      scrapeStatus.value = `${jobs.value.length} offres à découvrir !`;
 
       scrapeProgress.value = 100;
       cardIdx.value        = 0;
@@ -283,18 +257,7 @@ const App = {
       mascotState.value = action === "pass" ? "pass" : action === "super" ? "super" : "like";
       swipes.value.push({ job, action });
 
-      // Sauvegarder les likes vers le backend
-      if (action === "like" || action === "super") {
-        try {
-          await fetch("http://localhost:8000/api/likes", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ jobs: [job] }),
-          });
-        } catch (e) {
-          console.error("Erreur save like :", e);
-        }
-      }
+      // Demo : les likes sont persistés en localStorage uniquement (pas de backend)
 
       setTimeout(() => {
         cardIdx.value++;
@@ -470,22 +433,16 @@ const App = {
       this.chatLoading = true;
       await this.$nextTick();
       if (this.chatScroller) this.chatScroller.scrollTop = this.chatScroller.scrollHeight;
-      try {
-        const res = await fetch("http://localhost:8000/api/chat", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ message: text }),
-        });
-        if (!res.ok) throw new Error(`Erreur ${res.status}`);
-        const data = await res.json();
-        this.chatMessages.push({ role: "bot", text: data.reply });
-      } catch (e) {
-        this.chatMessages.push({ role: "bot", text: `⚠️ ${e.message}` });
-      } finally {
-        this.chatLoading = false;
-        await this.$nextTick();
-        if (this.chatScroller) this.chatScroller.scrollTop = this.chatScroller.scrollHeight;
-      }
+
+      // Demo : réponse simulée avec un délai réaliste
+      await new Promise(r => setTimeout(r, 700 + Math.random() * 800));
+      const reply = window.mockChatResponse
+        ? window.mockChatResponse(text)
+        : "Mode démo — réponse simulée.";
+      this.chatMessages.push({ role: "bot", text: reply });
+      this.chatLoading = false;
+      await this.$nextTick();
+      if (this.chatScroller) this.chatScroller.scrollTop = this.chatScroller.scrollHeight;
     },
 
     renderChatText(text) {

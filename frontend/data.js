@@ -164,7 +164,41 @@ window.MOCK_JOBS = [
 
 window.SOURCE_LABELS = {
   linkedin: "LinkedIn",
-  indeed: "Indeed",
+  indeed:   "Indeed",
+  wttj:     "WTTJ",
+};
+
+// ─── Mock chat pour la branche demo ───────────────────────
+window.mockChatResponse = function(text) {
+  const jobs = window.MOCK_JOBS || [];
+
+  if (/scrape|cherche|trouve|offres|search/i.test(text)) {
+    const preview = jobs.slice(0, 5)
+      .map((j, i) => `  ${i + 1}. **${j.title}** — ${j.company} (${j.city})`)
+      .join("\n");
+    return `J'ai simulé un scraping et trouvé **${jobs.length} offres** !\n\n${preview}\n\n...(et ${jobs.length - 5} autres)\n\nDis-moi "génère une lettre pour la 1ère" ou "montre toutes les offres".`;
+  }
+
+  if (/lettre|motivation|rédige|génère/i.test(text)) {
+    return `Madame, Monsieur,\n\nVivement intéressé(e) par le poste de **Développeur Python Backend** chez **Doctolib**, je me permets de vous adresser ma candidature.\n\nFort(e) de 4 ans d'expérience en développement Python avec FastAPI et PostgreSQL, j'ai conçu des APIs performantes pour des systèmes à fort trafic. Ma maîtrise des bonnes pratiques (CI/CD, code review, tests automatisés) s'aligne avec la culture craft que vous valorisez.\n\nConvaincu(e) que mon profil correspond aux attentes du poste, je serais ravi(e) d'en discuter lors d'un entretien.\n\nCordialement,\n[Ton nom]\n\n---\n_⚠️ Mode démo — en production, la lettre est générée par Ollama selon ton profil réel._`;
+  }
+
+  if (/gap|manque|analyse|compétences|profil|match/i.test(text)) {
+    return `**Analyse du gap — Développeur Python Backend @ Doctolib**\n\n✅ **Ce qui matche :**\n- Python / FastAPI — parfait\n- PostgreSQL — solide\n- Expérience APIs REST — validé\n- Travail en équipe agile — OK\n\n❌ **Ce qui manque :**\n- Kafka (message broker)\n- Kubernetes (mentionné comme bonus)\n- Redis en production\n\n**Score estimé : 8/10** — Excellent match ! Les éléments manquants sont des bonus, pas des bloquants.\n\n---\n_⚠️ Mode démo — en production, l'analyse compare ton profil réel à l'offre._`;
+  }
+
+  if (/traduis|anglais|translate|english/i.test(text)) {
+    return `**Translated version (English) :**\n\nDear Hiring Team,\n\nI am writing to express my strong interest in the **Python Backend Developer** position at **Doctolib**.\n\nWith 4 years of experience building Python APIs with FastAPI and PostgreSQL, I have developed robust, scalable systems for high-traffic applications. I thrive in craft-oriented engineering cultures with rigorous code review and continuous deployment.\n\nI would love to discuss how my background aligns with your team's mission. Thank you for your consideration.\n\nBest regards,\n[Your name]\n\n---\n_⚠️ Demo mode — real translation powered by Ollama._`;
+  }
+
+  if (/montre|liste|voir|affiche|show/i.test(text)) {
+    const list = jobs
+      .map((j, i) => `  ${i + 1}. **${j.title}** — ${j.company} [${(j.source || "").toUpperCase()}]\n     📍 ${j.city}  💶 ${j.salary || "NC"}`)
+      .join("\n");
+    return `**${jobs.length} offres en mémoire :**\n\n${list}`;
+  }
+
+  return `Bonjour ! Je suis **JobBot** en mode démo 👋\n\nJe peux simuler :\n- **Scraper des offres** — "cherche des offres Python"\n- **Générer une lettre** — "génère une lettre pour l'offre 1"\n- **Analyser le gap profil/offre** — "qu'est-ce qui manque dans mon profil ?"\n- **Traduire** — "traduis la lettre en anglais"\n- **Lister les offres** — "montre toutes les offres"\n\n_En production, ces actions utilisent Ollama en local — 100% privé._`;
 };
 
 window.COMPANY_COLORS = {
