@@ -5,12 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>JobScraper - Trouve ton job en swipant</title>
 
+  <!-- Google Fonts — display=swap : texte visible immédiatement avec police système si réseau lent/bloqué -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="styles.css">
-  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+
+  <!-- Vue 3 CDN — integrity garantit que le fichier n'a pas été altéré en transit (SRI) -->
+  <script
+    src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"
+    integrity="sha384-bkD9qcJiDlQRpeIQtZSHgyQEMvRBzmOI9lw2SZHkLOrliAdnLtxNIucoEAVG9QVA"
+    crossorigin="anonymous"
+  ></script>
 
   <style>
     /* ── Chat Panel ─────────────────────────────────────────── */

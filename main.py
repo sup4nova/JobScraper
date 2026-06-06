@@ -7,9 +7,9 @@ import json
 import os
 import asyncio
 
-from scrapers.indeed import IndeedScraper
-from scrapers.linkedin import LinkedInScraper
-from scrapers.WIP.wttj import WTTJScraper
+from backend.scrapers.indeed import IndeedScraper
+from backend.scrapers.linkedin import LinkedInScraper
+from backend.scrapers.WIP.wttj import WTTJScraper
 
 
 
@@ -130,7 +130,7 @@ def select_jobs(offres: list[dict]) -> list[dict]:
 # ── Génération CV ─────────────────────────────────────────────────────────────
 
 def generer_cvs(offres: list[dict]):
-    from cv.generator import generate_cv
+    from backend.cv.generator import generate_cv
 
     print("─" * 55)
     print("Génération des CVs")

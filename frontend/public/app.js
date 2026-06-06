@@ -14,13 +14,21 @@ const LS = {
 };
 
 function lsSave(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch (_) {}
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch (e) {
+    // Navigation privée (Safari) ou quota dépassé — les données ne sont pas persistées
+    console.warn("[JobSwipe] localStorage indisponible :", e.name);
+  }
 }
 function lsLoad(key, fallback) {
   try {
     const r = localStorage.getItem(key);
     return r ? JSON.parse(r) : fallback;
-  } catch (_) { return fallback; }
+  } catch (e) {
+    console.warn("[JobSwipe] localStorage illisible :", e.name);
+    return fallback;
+  }
 }
 
 // ─────────────── App ───────────────
