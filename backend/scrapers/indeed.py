@@ -1,12 +1,11 @@
 """
-Scraper Indeed — undetected-chromedriver + webdriver-manager
+Scraper Indeed — Selenium + undetected-chromedriver
 Dépendances :
-    pip install undetected-chromedriver webdriver-manager selenium fake-useragent
+    pip install undetected-chromedriver webdriver-manager selenium fake-useragent setuptools
 """
 import time
 import random
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 
 import undetected_chromedriver as uc
@@ -17,7 +16,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from fake_useragent import UserAgent
-
 
 _SALARY_KEYWORDS = ["€", "k€", "eur", "salaire", "rémunération", "par an", "par mois"]
 _EDU_KEYWORDS    = ["bac", "bts", "dut", "licence", "master", "ingénieur",
@@ -52,20 +50,20 @@ class IndeedScraper:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument(f"user-agent={UserAgent().random}")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-        options.add_argument(f"user-agent={UserAgent().random}")
 
         driver = uc.Chrome(
-            service=Service(ChromeDriverManager().install()),
             options=options,
+            version_main=149,   # garde ce pin, il correspond à ton Chrome 149
         )
         return driver
 
     # ── Points d'entrée ───────────────────────────────────────────────────────
 
     def scrape(self) -> list[dict]:
-        """Version synchrone — utilisée par le CLI."""
+        """Version synchrone — utilisée par le CLI et l'executor FastAPI."""
         driver = self._make_driver()
         try:
             return self._search(driver)
@@ -73,10 +71,8 @@ class IndeedScraper:
             driver.quit()
 
     async def scrape_async(self) -> list[dict]:
-        """Version async — appelée par FastAPI."""
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as pool:
-            return await loop.run_in_executor(pool, self.scrape)
+        """Délègue à scrape() — l'executor dans main.py gère le thread."""
+        return self.scrape()
 
     # ── Recherche + pagination ────────────────────────────────────────────────
 
@@ -84,6 +80,7 @@ class IndeedScraper:
         query_enc = quote_plus(self.query)
         city_enc  = quote_plus(self.city)
         driver.get(f"{self.BASE}/jobs?q={query_enc}&l={city_enc}")
+        print(f"🌐 Page chargée : {driver.current_url}")
         time.sleep(random.uniform(2, 4))
 
         # Bannière cookies
@@ -93,6 +90,7 @@ class IndeedScraper:
             )
             btn.click()
             time.sleep(1)
+            print("🍪 Cookies acceptés")
         except TimeoutException:
             pass
 
@@ -107,18 +105,20 @@ class IndeedScraper:
                     )
                 )
             except TimeoutException:
+                print("⚠️  Conteneur introuvable")
                 break
 
             container    = driver.find_element(By.CSS_SELECTOR, "#mosaic-provider-jobcards")
             job_elements = container.find_elements(
                 By.CSS_SELECTOR, "[data-testid='slider_item']"
             )
-
             if not job_elements:
                 job_elements = container.find_elements(By.CSS_SELECTOR, "li.css-5lfssm")
             if not job_elements:
-                print("    ⚠️  Aucune carte trouvée — sélecteurs peut-être obsolètes")
+                print("⚠️  Aucune carte trouvée — sélecteurs peut-être obsolètes")
                 break
+
+            print(f"📋 {len(job_elements)} cartes trouvées sur cette page")
 
             for job_el in job_elements:
                 if len(jobs) >= self.limit:
@@ -144,16 +144,53 @@ class IndeedScraper:
             except NoSuchElementException:
                 break
 
+        print(f"✅ {len(jobs)} offres récupérées")
+        print(jobs[0] if jobs else "Aucune offre à afficher")
         return jobs
 
     # ── Parsing d'une carte ───────────────────────────────────────────────────
 
     def _parse_element(self, job_el) -> dict | None:
-        try:
-            title_el = job_el.find_element(By.CSS_SELECTOR, "h2.jobTitle")
-            title    = title_el.text
-            url      = title_el.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-        except NoSuchElementException:
+        title_el = None
+        for sel in ["h2.jobTitle", "h2[data-testid='jobTitle']", "h2", ".jobTitle"]:
+            try:
+                title_el = job_el.find_element(By.CSS_SELECTOR, sel)
+                break
+            except NoSuchElementException:
+                continue
+
+        if not title_el:
+            print("    ❌ Aucun sélecteur de titre trouvé")
+            return None
+
+        # 2. Lit le titre, ignore les cartes vides (placeholders / pubs)
+        title = title_el.text.strip()
+        if not title:
+            return None
+
+        # 3. Extrait le jk (priorité à data-jk, présent même sur les pagead)
+        jk = job_el.get_attribute("data-jk")
+        if not jk:
+            try:
+                jk = job_el.find_element(By.CSS_SELECTOR, "[data-jk]").get_attribute("data-jk")
+            except NoSuchElementException:
+                jk = None
+
+        # 4. URL propre si on a le jk, sinon repli sur le href de la carte
+        url = None
+        if jk:
+            url = f"https://fr.indeed.com/viewjob?jk={jk}"
+        else:
+            try:
+                url = title_el.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+            except NoSuchElementException:
+                try:
+                    url = job_el.find_element(By.CSS_SELECTOR, "a.jcs-JobTitle").get_attribute("href")
+                except NoSuchElementException:
+                    pass
+
+        if not url:
+            print(f"    ❌ URL introuvable pour : {title}")
             return None
 
         company = self._safe_text(job_el, "[data-testid='company-name']")
@@ -228,3 +265,12 @@ class IndeedScraper:
                 contract_parts.append(tag)
 
         return salary, education, contract_parts
+    
+if __name__ == "__main__":
+    print("🔍 Lancement du scraper...")
+    scraper = IndeedScraper(query="developpeur python", city="Paris", limit=5)
+    jobs = scraper.scrape()
+    print(f"\n📦 {len(jobs)} offres trouvées :")
+    for job in jobs:
+        print(f"  - {job['title']} @ {job['company']} ({job['city']})")
+        print(f"    🔗 {job['url']}")

@@ -37,8 +37,8 @@ Format strict : {"intent": "INTENT", "args": {}}
 
 Intents disponibles :
 - "scrape"    : l'utilisateur veut chercher/scraper des offres d'emploi
-  args: {"query": "<poste recherché>", "sites": ["indeed"|"linkedin"|"wttj"], "limit": <int>}
-  → sites par défaut : ["linkedin","wttj"] si non précisé ; limit par défaut : 10
+  args: {"query": "<poste recherché>", "sites": ["indeed"|"linkedin"|"wttj"|"remoteok"], "limit": <int>}
+  → sites par défaut : ["linkedin","wttj","remoteok"] si non précisé ; limit par défaut : 10
 
 - "letter"    : l'utilisateur veut une lettre de motivation
   args: {"index": <numéro de l'offre (1-based), 0 si non précisé>}
@@ -57,6 +57,7 @@ Intents disponibles :
 
 Exemples :
   "Scrape les offres AI remote sur LinkedIn" → {"intent":"scrape","args":{"query":"AI remote","sites":["linkedin"],"limit":10}}
+  "Cherche des offres Python"               → {"intent":"scrape","args":{"query":"Python","sites":["linkedin","wttj","remoteok"],"limit":10}}
   "Génère une lettre pour la 3ème"           → {"intent":"letter","args":{"index":3}}
   "Qu'est-ce qui manque dans mon profil pour ce poste ?" → {"intent":"gap","args":{"index":0}}
   "Traduis la lettre en anglais"             → {"intent":"translate","args":{"target":"en"}}
@@ -125,7 +126,7 @@ def handle_message(user_input: str, session: Session, model: str = DEFAULT_MODEL
 
     if intent == "scrape":
         query = args.get("query") or user_input
-        sites = args.get("sites") or ["linkedin", "wttj"]
+        sites = args.get("sites") or ["linkedin", "wttj", "remoteok"]
         limit = int(args.get("limit") or 10)
         offres = tools.scrape_jobs(query, sites, limit)
         if not offres:
@@ -259,7 +260,7 @@ def run(model: str = DEFAULT_MODEL):
         # ── SCRAPE ────────────────────────────────────────────────────────────
         if intent == "scrape":
             query = args.get("query") or user_input
-            sites = args.get("sites") or ["linkedin", "wttj"]
+            sites = args.get("sites") or ["linkedin", "wttj", "remoteok"]
             limit = int(args.get("limit") or 10)
 
             print(f"\nBot : Scraping '{query}' sur {', '.join(sites)} (max {limit}) ...\n")

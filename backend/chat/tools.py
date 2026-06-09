@@ -23,6 +23,8 @@ def scrape_jobs(query: str, sites: list[str], limit: int = 10) -> list[dict]:
     from scrapers.indeed import IndeedScraper
     from scrapers.linkedin import LinkedInScraper
     from scrapers.WIP.wttj import WTTJScraper
+    from scrapers.remote_ok import RemoteOKScraper
+    from scrapers.wellfound import WellfoundScraper
 
     offres: list[dict] = []
 
@@ -35,16 +37,36 @@ def scrape_jobs(query: str, sites: list[str], limit: int = 10) -> list[dict]:
         except Exception as e:
             print(f"     ⚠️ Indeed : {e}")
 
+    if "remoteok" in sites:
+        try:
+            print("  → Remote OK...")
+            jobs = RemoteOKScraper(query=query, limit=limit).scrape()
+            offres.extend(jobs)
+            print(f"     {len(jobs)} offres")
+        except Exception as e:
+            print(f"     ⚠️ Remote OK : {e}")
+
+    if "linkedin" in sites:
+        try:
+            print("  → LinkedIn...")
+            jobs = LinkedInScraper(query=query, city="", limit=limit).scrape()
+            offres.extend(jobs)
+            print(f"     {len(jobs)} offres")
+        except Exception as e:
+            print(f"     ⚠️ LinkedIn : {e}")
+
+
+    if "wellfound" in sites:
+        try:
+            print("  → Wellfound...")
+            jobs = WellfoundScraper(query=query, city="", limit=limit).scrape()
+            offres.extend(jobs)
+            print(f"     {len(jobs)} offres")
+        except Exception as e:
+            print(f"     ⚠️ Wellfound : {e}")
+
     async def _async_scrapers():
         results = []
-        if "linkedin" in sites:
-            try:
-                print("  → LinkedIn...")
-                jobs = await LinkedInScraper(query=query, city="", limit=limit).scrape()
-                results.extend(jobs)
-                print(f"     {len(jobs)} offres")
-            except Exception as e:
-                print(f"     ⚠️ LinkedIn : {e}")
         if "wttj" in sites:
             try:
                 print("  → WTTJ...")
@@ -55,7 +77,7 @@ def scrape_jobs(query: str, sites: list[str], limit: int = 10) -> list[dict]:
                 print(f"     ⚠️ WTTJ : {e}")
         return results
 
-    if "linkedin" in sites or "wttj" in sites:
+    if "wttj" in sites:
         offres.extend(asyncio.run(_async_scrapers()))
 
     return offres
