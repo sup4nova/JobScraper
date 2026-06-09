@@ -55,12 +55,12 @@ const App = {
       poste:       "",
       ville:       "",
       rayon:       30,
-      remote:      ["hybride"],
-      contrats:    ["CDI"],
+      remote:      ["hybrid"],
+      contrats:    ["Permanent"],
       salaryMin:   45,
       salaryMax:   75,
       experience:  "3-5",
-      langues:     ["Francais"],
+      langues:     ["French"],
       companySize: ["scale-up"],
       name:        "",
       email:       "",
@@ -77,13 +77,16 @@ const App = {
     const chatLoading  = ref(false);
     const chatScroller = ref(null);
     const chatMessages = ref([
-      { role: "bot", text: "Salut ! Je suis **JobBot** 👋\nUne fois tes offres scrapées, je peux générer une lettre de motivation, analyser le match de ton profil, ou traduire la lettre." },
+      { role: "bot", text: "Hey! I'm **JobBot** 👋\nOnce your jobs are scraped, I can generate a cover letter, analyze how well your profile matches an offer, or translate the letter." },
     ]);
 
     const scrapeProgress = ref(0);
     const scrapeStatus   = ref("");
     const scrapeSources  = reactive([
       { id: "indeed", label: "Indeed", state: "pending", count: 0 },
+      { id: "linkedin", label: "LinkedIn", state: "pending", count: 0 },
+      { id: "wellfound", label: "Wellfound", state: "pending", count: 0 },
+      { id: "remoteok", label: "RemoteOK", state: "pending", count: 0 },
     ]);
 
     const jobs    = ref([]);
@@ -102,7 +105,7 @@ const App = {
     });
 
     const sourceBreakdown = computed(() => {
-      const counts = { indeed: 0 };
+      const counts = { indeed: 0, linkedin: 0, wellfound: 0, remoteok: 0 };
       liked.value.forEach(s => { counts[s.job.source] = (counts[s.job.source] || 0) + 1; });
       const total = liked.value.length || 1;
       return Object.entries(counts).map(([id, c]) => ({
@@ -110,7 +113,7 @@ const App = {
         label: window.SOURCE_LABELS[id],
         count: c,
         pct:   Math.round((c / total) * 100),
-        color: id === "indeed" ? "#8FD4A9" : "#7A86F5",
+        color: id === "indeed" ? "#8FD4A9" : id === "linkedin" ? "#7A86F5" : id === "wellfound" ? "#F2B82E" : id === "remoteok" ? "#52B57A" : "#8FD4A9",
       }));
     });
 
@@ -171,14 +174,14 @@ const App = {
       scene.value         = "scraping";
       mascotState.value   = "scraping";
       scrapeProgress.value = 10;
-      scrapeStatus.value  = "Simulation du scraping...";
+      scrapeStatus.value  = "Simulating scrape...";
 
-      // Demo : données mockées depuis data.js, délai simulé
-      scrapeStatus.value   = "Récupération des offres LinkedIn & Indeed...";
+      // Demo: mock data from data.js, simulated delay
+      scrapeStatus.value   = "Fetching job listings...";
       scrapeProgress.value = 40;
       await new Promise(r => setTimeout(r, 1400));
       scrapeProgress.value = 80;
-      scrapeStatus.value   = "Tri et déduplication...";
+      scrapeStatus.value   = "Sorting and deduplicating...";
       await new Promise(r => setTimeout(r, 600));
 
       const freshJobs = [...(window.MOCK_JOBS || [])];
@@ -195,7 +198,7 @@ const App = {
       // N'afficher que les jobs pas encore swipés
       const swipedUrls = new Set(swipes.value.map(s => s.job.url));
       jobs.value       = merged.filter(j => !swipedUrls.has(j.url));
-      scrapeStatus.value = `${jobs.value.length} offres à découvrir !`;
+      scrapeStatus.value = `${jobs.value.length} jobs to discover!`;
 
       scrapeProgress.value = 100;
       cardIdx.value        = 0;
@@ -445,7 +448,7 @@ const App = {
       await new Promise(r => setTimeout(r, 700 + Math.random() * 800));
       const reply = window.mockChatResponse
         ? window.mockChatResponse(text)
-        : "Mode démo — réponse simulée.";
+        : "Demo mode — simulated response.";
       this.chatMessages.push({ role: "bot", text: reply });
       this.chatLoading = false;
       await this.$nextTick();

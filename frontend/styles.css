@@ -617,9 +617,11 @@ body {
 .swipe-mascot-area svg { width: 76px; height: 76px; }
 
 .deck {
-  flex: 1;
   position: relative;
-  margin: 0 18px;
+  width: calc(100% - 36px);
+  max-width: 400px;
+  height: min(60vh, 100%);
+  margin: auto;
   min-height: 0;
 }
 
@@ -677,6 +679,18 @@ body {
   width: 6px; height: 6px;
   border-radius: 50%;
   background: var(--ink);
+}
+
+.bot-intro{
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
 }
 
 .easy-apply-pill {
@@ -814,10 +828,10 @@ body {
 .action:active { transform: translateY(1px);  box-shadow: 0 2px 0 0 var(--ink); }
 .action svg    { width: 26px; height: 26px; }
 
-.action.pass  { width: 54px; height: 54px; color: var(--coral-deep); }
-.action.like  { width: 64px; height: 64px; color: #169152; background: var(--mint); }
+.action.pass  { width: 54px; height: 54px; background: var(--coral-deep); color: var(--paper); }
+.action.like  { width: 54px; height: 54px; color: var(--paper); background: var(--peri); }
 .action.like svg { width: 32px; height: 32px; }
-.action.super { width: 54px; height: 54px; color: var(--paper); background: var(--peri); }
+.action.super { width: 54px; height: 54px; color: var(--paper); background: rgb(212, 168, 8); }
 
 /* counter */
 .deck-counter {
