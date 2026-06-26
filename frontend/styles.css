@@ -107,20 +107,13 @@ body {
   letter-spacing: -0.02em;
 }
 
-.brand-mark {
+.brand-logo {
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: var(--coral);
-  border: 1.5px solid var(--ink);
-  display: grid;
-  place-items: center;
-  color: var(--paper);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
   box-shadow: var(--shadow-chunky);
   transform: rotate(-4deg);
+  flex-shrink: 0;
 }
 
 .brand em {
