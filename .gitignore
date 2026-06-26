@@ -30,6 +30,7 @@ Thumbs.db
 !.vscode/extensions.json
 *.suo
 *.sw?
+/technical.md
 
 # Claude Code memory
 .claude/

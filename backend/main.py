@@ -15,6 +15,7 @@ from scrapers.linkedin import LinkedInScraper
 from scrapers.wellfound import WellfoundScraper
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from multiprocessing import Pool
 from multiprocessing import freeze_support
 freeze_support()  # nécessaire sur Windows pour éviter les erreurs "RuntimeError: An attempt has been made to start a new process before the current process has finished its bootstrapping phase."
@@ -23,6 +24,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from chat.agent import handle_message, Session
 from chat.ollama_client import DEFAULT_MODEL
 app = FastAPI()
+
+CV_OUTPUT = Path(__file__).parent / "cv" / "output"
+CV_OUTPUT.mkdir(parents=True, exist_ok=True)
+app.mount("/cv", StaticFiles(directory=str(CV_OUTPUT)), name="cv")
 
 # Single session shared across requests — holds scraped jobs, last letter, chat history
 # (single-user only; swap for a per-cookie dict to support multiple users)
@@ -323,7 +328,7 @@ def generer_cvs(offres: list[dict]):
         else:
             print("     ❌ Échec (Typst installé ?)")
     print()
-
+    return path
 
 # ── Profil utilisateur ────────────────────────────────────────────────────────
 

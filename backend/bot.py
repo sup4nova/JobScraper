@@ -7,6 +7,7 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote_plus
 
 load_dotenv()
@@ -32,6 +33,7 @@ EMO_SALARY   = "💰"
 EMO_MODE     = "📍"
 EMO_CONTRACT = "📄"
 EMO_APPLY    = "⚡"
+EMO_RESUME   = "📝"
 EMO_LINK     = "🔗"
 EMO_HIDE     = "🙈"
 
@@ -159,7 +161,7 @@ def build_job_embed(job: dict) -> discord.Embed:
 class JobCardView(discord.ui.View):
     """Rangée de boutons sous chaque carte. timeout=None → persiste."""
 
-    def __init__(self, job: dict):
+    def __init__(self, job: dict, resume: str | None = None):
         super().__init__(timeout=None)
 
         def _valid_btn_url(u):
@@ -187,22 +189,42 @@ class JobCardView(discord.ui.View):
                 style=discord.ButtonStyle.link,
                 url=url,
             ))
+        
+        if resume and _valid_btn_url(resume):
+            self.add_item(discord.ui.Button(
+                label="Voir le CV",
+                emoji=EMO_RESUME,
+                style=discord.ButtonStyle.link,
+                url=resume,
+            ))
 
     # 🙈 Cacher — bouton d'interaction (callback)
     @discord.ui.button(label="Cacher", emoji=EMO_HIDE, style=discord.ButtonStyle.secondary)
     async def hide(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Option A — supprimer complètement le message :
         await interaction.message.delete()
 
-        # Option B — au lieu de supprimer, réduire à une ligne discrète :
-        # (commente la ligne ci-dessus et décommente le bloc suivant)
-        #
-        # job_title = interaction.message.embeds[0].title if interaction.message.embeds else "Offre"
-        # await interaction.response.edit_message(
-        #     content=f"🙈 *Offre masquée — {job_title}*",
-        #     embed=None,
-        #     view=None,
-        # )
+
+
+# ── Génération CV via le serveur ──────────────────────────────────────────
+async def get_cv_url(job: dict) -> str | None:
+    try:
+        timeout = aiohttp.ClientTimeout(total=60)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(
+                "http://localhost:8000/api/generate-cvs",
+                json={"jobs": [job]},
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                result = (data.get("results") or [{}])[0]
+                if not result.get("ok") or not result.get("path"):
+                    return None
+                filename = Path(result["path"]).name
+                return f"http://localhost:8000/cv/{filename}"
+    except Exception as e:
+        print(f"Erreur génération CV : {e}")
+        return None
 
 
 # ── Récupération profil + offres (inchangé) ────────────────────────────────
@@ -287,7 +309,8 @@ async def on_ready():
             continue
 
         print(f'Envoi : {job["title"]} @ {job["company"]}')
-        await channel.send(embed=build_job_embed(job), view=JobCardView(job))
+        resume = await get_cv_url(job)
+        await channel.send(embed=build_job_embed(job), view=JobCardView(job, resume=resume))
         seen.add(job_id)
         new_count += 1
 

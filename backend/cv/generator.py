@@ -43,7 +43,7 @@ async def generate_cv(job: dict, user: dict) -> str | None:
     }
     for key, val in variables.items():
         template = template.replace(key, str(val))
-
+    print(f"Variables utilisées : {variables}")
     # Écrire le .typ compilé
     typ_path.write_text(template, encoding="utf-8")
 
@@ -65,3 +65,27 @@ async def generate_cv(job: dict, user: dict) -> str | None:
     except subprocess.TimeoutExpired:
         print("     ❌ Typst timeout")
         return None
+    
+if __name__ == "__main__":
+    job = {
+        "title": "Développeur Python",
+        "company": "TechCorp",
+        "city": "Paris",
+        "contract_type": "CDI",
+        "salary": "50k-60k€",
+        "description": "Nous recherchons un développeur Python expérimenté...",
+    }
+    user = {
+        "name": "Alice Dupont",
+        "email": "alice@example.com",
+        "phone": "0600000000",
+        "location": "Paris",
+        "github": "",
+        "linkedin_url": "",
+        "summary": "Développeuse Python passionnée.",
+        "skills": "Python\nFastAPI\nSQL",
+        "experience": "",
+        "education_text": "",
+    }
+    path = asyncio.run(generate_cv(job, user))
+    print("CV généré :", path if path else "ÉCHEC")
