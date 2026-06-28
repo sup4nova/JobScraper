@@ -1,133 +1,187 @@
-# 🔍 JobScraper + CV Generator
+# JobScraper
 
-Scrape Indeed / LinkedIn / Welcome to the Jungle, sélectionne les offres qui te plaisent, et génère automatiquement un CV adapté à chaque annonce.
-
----
-
-## 🗂 Structure du projet
-
-```
-job-scraper/
-├── main.py                  ← point d'entrée, lance tout
-├── models.py                ← structure d'une offre
-├── requirements.txt
-├── scrapers/
-│   ├── orchestrator.py      ← lance les scrapers en parallèle
-│   ├── indeed.py            ← scraper Indeed
-│   ├── linkedin.py          ← scraper LinkedIn
-│   └── wttj.py              ← scraper Welcome to the Jungle
-├── ui/
-│   └── selector.py          ← interface CLI de sélection
-├── cv/
-│   └── generator.py         ← génération CV (Typst / Markdown / TXT)
-├── data/                    ← offres sauvegardées en JSON
-└── output/                  ← CVs générés
-```
+Scrapes job listings from Indeed, LinkedIn, Wellfound, and Remote OK, then surfaces them through a Vue.js dashboard. A Discord bot can post new listings directly to a channel as interactive cards.
 
 ---
 
-## ⚙️ Setup (pour les nuls)
+## Features
 
-### 1. Cloner le repo
+| Feature | Status |
+|---|---|
+| Scraping - Indeed, LinkedIn, Wellfound, Remote OK | ✅ Working |
+| Vue.js job dashboard (search, filter, like) | ✅ Working |
+| FastAPI REST backend | ✅ Working |
+| Docker deployment (backend + frontend) | ✅ Working |
+| Discord bot - job cards with Apply / Hide buttons | ✅ Local only |
+| WTTJ scraper | 🚧 Coming soon |
+| AI assistant (Ollama) | 🚧 Coming soon |
+| Tailored CV generator (Typst) | 🚧 Local only |
 
-```bash
-git clone https://github.com/ton-user/job-scraper.git
-cd job-scraper
+---
+
+## Architecture
+
+```
+JobScrapper/
+├── main.py                    ← CLI entry point (scrape → pick → generate CV)
+├── docker-compose.yml
+├── backend/
+│   ├── main.py                ← FastAPI app + scraping orchestration
+│   ├── models.py              ← Job data model
+│   ├── bot.py                 ← Discord bot
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── scrapers/
+│   │   ├── indeed.py          ← undetected-chromedriver
+│   │   ├── linkedin.py        ← guest HTTP API (no browser)
+│   │   ├── wellfound.py       ← undetected-chromedriver + __NEXT_DATA__ JSON
+│   │   ├── remote_ok.py       ← public JSON API (no browser)
+│   │   └── WIP/
+│   │       └── wttj.py        ← Playwright + Algolia (in progress)
+│   └── api/
+│       └── routes.py
+└── frontend/
+    ├── index.html             ← Vue.js 3 (CDN, no build step)
+    ├── public/
+    │   ├── app.js
+    │   └── data.js
+    ├── Dockerfile
+    └── nginx.conf
 ```
 
-### 2. Créer un environnement virtuel
+**Not in the repo** (local-only, gitignored):
+- `backend/chat/` - Ollama LLM agent
+- `backend/cv/` - Typst CV generator
+- `profil.json`, `liked_jobs.json`, `seen_jobs.json` - runtime user data
+- `.env` - secrets (Discord token, channel ID)
+
+---
+
+## Setup
+
+### 1. Clone
 
 ```bash
+git clone https://github.com/sup4nova/JobScraper.git
+cd JobScraper
+```
+
+### 2. Create a virtual environment
+
+```bash
+cd backend
 python -m venv venv
 ```
 
-### 3. Activer l'environnement virtuel
+### 3. Activate it
 
-**Windows (CMD) :**
-```bash
-venv\Scripts\activate
-```
-
-**Windows (PowerShell) :**
-```bash
+**Windows (PowerShell):**
+```powershell
 venv\Scripts\Activate.ps1
 ```
 
-**Mac / Linux :**
+**Mac / Linux:**
 ```bash
 source venv/bin/activate
 ```
 
-> Tu dois voir `(venv)` apparaître au début de ta ligne de commande.
-
-### 4. Installer les dépendances
+### 4. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
+### 5. Run the FastAPI backend
+
+```bash
+uvicorn main:app --reload
+```
+
+The API is available at `http://localhost:8000`.
+
 ---
 
-## 🚀 Lancer le script
+## Frontend
+
+Open `frontend/index.html` directly in a browser, or serve it via the Docker setup below. No build step needed - Vue 3 is loaded from CDN.
+
+---
+
+## Docker
+
+```bash
+docker-compose up --build
+```
+
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:8001`
+
+---
+
+## CLI mode
+
+Run the scraper interactively from the terminal:
 
 ```bash
 python main.py
 ```
 
-Le script va te demander :
-1. Le **poste** recherché (ex: `développeur python`)
-2. La **ville** (ex: `Lyon` — laisser vide = toute la France)
-3. Le **nombre max d'offres** à scraper par site
-4. Les **sites** à utiliser (Indeed / LinkedIn / WTTJ / Tous)
-
-Ensuite tu sélectionnes les offres qui t'intéressent, et les CVs sont générés dans `/output/`.
+You'll be asked for a job title, city, max results per site, and which sites to use. Results are saved to `scraped_jobs.csv`.
 
 ---
 
-## 📄 Configuration du CV
+## Discord bot
 
-Ouvre `cv/generator.py` et remplis le dictionnaire `MON_PROFIL` avec tes infos :
+The bot polls the FastAPI backend on startup, then posts new job listings as embed cards with **Apply**, **View listing**, and **Hide** buttons.
 
-```python
-MON_PROFIL = {
-    "nom": "Prénom NOM",
-    "email": "ton@email.com",
-    "tel": "+33 6 XX XX XX XX",
-    "competences": ["Python", "SQL", "Docker"],
-    "experiences": [...],
-    "formations": [...],
-}
+Create a `.env` file in the `backend/` folder:
+
+```env
+DISCORD_TOKEN=your_bot_token
+DISCORD_CHANNEL_ID=your_channel_id
 ```
 
-### Format de sortie
+Run it:
 
-Change la variable `MODE` dans `cv/generator.py` :
-
-| Mode | Fichier généré | Utilisation |
-|------|---------------|-------------|
-| `"typst"` | `.typ` + `.pdf` | Meilleur rendu — nécessite [Typst](https://typst.app) |
-| `"md"` | `.md` | Ouvrir avec VS Code, Obsidian, etc. |
-| `"txt"` | `.txt` | Brut, universel |
-
-Pour Typst : installer depuis [typst.app](https://typst.app/docs/install) ou `winget install Typst.Typst`
+```bash
+cd backend
+python bot.py
+```
 
 ---
 
-## ⚠️ Notes importantes
+## Scrapers
 
-- **Indeed et LinkedIn bloquent les bots** — si ça ne scrape rien, c'est normal. Pistes : changer le User-Agent, ajouter des délais, utiliser Playwright.
-- **WTTJ** est le plus permissif des trois (API JSON publique).
-- Les offres scrapées sont sauvegardées dans `/data/` en JSON — tu peux les relire sans re-scraper.
-- Les sélecteurs CSS **peuvent casser** si les sites changent leur HTML — c'est la vie du scraping.
+| Source | Method | Notes |
+|---|---|---|
+| Indeed | undetected-chromedriver | Cloudflare bypass via UC |
+| LinkedIn | Guest HTTP API | No browser needed |
+| Wellfound | undetected-chromedriver + `__NEXT_DATA__` | Parses Next.js JSON blob |
+| Remote OK | Public JSON API | No browser, no auth |
+| WTTJ | Playwright + Algolia API | WIP |
+
+Chrome-based scrapers (Indeed, Wellfound) run in a subprocess via `multiprocessing.Pool` to avoid driver conflicts.
 
 ---
 
-## 🔧 Dépendances
+## Dependencies
+
+See `backend/requirements.txt`. Key packages:
 
 | Package | Usage |
-|---------|-------|
-| `requests` | Requêtes HTTP |
-| `beautifulsoup4` | Parsing HTML |
-| `lxml` | Parser HTML rapide |
+|---|---|
+| `fastapi` + `uvicorn` | REST API server |
+| `undetected-chromedriver` | Anti-bot Chrome driver |
+| `beautifulsoup4` | HTML parsing (LinkedIn) |
+| `playwright` | WTTJ scraper (WIP) |
+| `discord.py` | Discord bot |
+| `python-dotenv` | `.env` loading |
 
-> Pas de Playwright par défaut pour rester léger — à ajouter si les sites bloquent `requests`.
+---
+
+## Notes
+
+- **Indeed and LinkedIn block scrapers** - if results are empty, the site may have detected the request. Adding delays and rotating user agents helps.
+- **Wellfound** requires Chrome to be installed at the default path.
+- **Remote OK** is the most reliable source - public API, no auth, no browser.
+- CSS selectors and JSON structures may break if sites update their frontend - that's the nature of scraping.
