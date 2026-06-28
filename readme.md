@@ -1,133 +1,103 @@
-# 🔍 JobScraper + CV Generator
+# JobScraper
 
-Scrape Indeed / LinkedIn / Welcome to the Jungle, sélectionne les offres qui te plaisent, et génère automatiquement un CV adapté à chaque annonce.
+Scrape Indeed, LinkedIn et Welcome to the Jungle, swipe les offres qui t'intéressent, et génère des lettres de motivation personnalisées via une IA locale.
 
----
+## Stack
 
-## 🗂 Structure du projet
+**Backend** — Python, FastAPI, Selenium + undetected-chromedriver, BeautifulSoup, Playwright, Ollama  
+**Frontend** — Vue.js 3, CSS vanilla (pas de build)
+
+## Architecture
 
 ```
-job-scraper/
-├── main.py                  ← point d'entrée, lance tout
-├── models.py                ← structure d'une offre
-├── requirements.txt
-├── scrapers/
-│   ├── orchestrator.py      ← lance les scrapers en parallèle
-│   ├── indeed.py            ← scraper Indeed
-│   ├── linkedin.py          ← scraper LinkedIn
-│   └── wttj.py              ← scraper Welcome to the Jungle
-├── ui/
-│   └── selector.py          ← interface CLI de sélection
-├── cv/
-│   └── generator.py         ← génération CV (Typst / Markdown / TXT)
-├── data/                    ← offres sauvegardées en JSON
-└── output/                  ← CVs générés
+JobScrapper/
+├── main.py                  ← CLI : scrape + sélection + génération CV
+├── chat.py                  ← CLI : chatbot JobBot
+├── backend/
+│   ├── main.py              ← API FastAPI
+│   ├── models.py            ← Modèle de données offre
+│   ├── requirements.txt
+│   ├── scrapers/
+│   │   ├── indeed.py        ← Scraper Selenium (anti-bot)
+│   │   ├── linkedin.py      ← Scraper Selenium + BeautifulSoup
+│   │   └── WIP/
+│   │       └── wttj.py      ← Scraper Playwright + API Algolia
+│   ├── chat/
+│   │   ├── agent.py         ← Routeur d'intents + boucle conversation
+│   │   ├── tools.py         ← Lettre de motivation, gap analysis, traduction
+│   │   └── ollama_client.py ← Client HTTP pour Ollama local
+│   └── cv/
+│       ├── generator.py     ← Génération CV via Typst
+│       └── template.typ     ← Template CV
+└── frontend/
+    ├── index.html           ← SPA Vue 3 (UI swipe mobile-first)
+    ├── public/
+    │   ├── app.js
+    │   └── data.js          ← Données de démo
+    └── styles.css
 ```
 
----
+## Installation
 
-## ⚙️ Setup (pour les nuls)
-
-### 1. Cloner le repo
+### Backend
 
 ```bash
-git clone https://github.com/ton-user/job-scraper.git
-cd job-scraper
-```
-
-### 2. Créer un environnement virtuel
-
-```bash
+cd backend
 python -m venv venv
-```
-
-### 3. Activer l'environnement virtuel
-
-**Windows (CMD) :**
-```bash
-venv\Scripts\activate
-```
-
-**Windows (PowerShell) :**
-```bash
-venv\Scripts\Activate.ps1
-```
-
-**Mac / Linux :**
-```bash
-source venv/bin/activate
-```
-
-> Tu dois voir `(venv)` apparaître au début de ta ligne de commande.
-
-### 4. Installer les dépendances
-
-```bash
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac / Linux
 pip install -r requirements.txt
 ```
 
----
+Lancer l'API :
+```bash
+uvicorn main:app --reload
+```
 
-## 🚀 Lancer le script
+### Frontend
+
+Ouvrir `frontend/index.html` directement dans un navigateur — aucun build requis.  
+La démo tourne avec des données simulées, sans backend.
+
+### Chatbot IA (local)
+
+Nécessite [Ollama](https://ollama.ai) en local :
 
 ```bash
-python main.py
+ollama serve
+ollama pull qwen2.5:7b
+python chat.py
 ```
 
-Le script va te demander :
-1. Le **poste** recherché (ex: `développeur python`)
-2. La **ville** (ex: `Lyon` — laisser vide = toute la France)
-3. Le **nombre max d'offres** à scraper par site
-4. Les **sites** à utiliser (Indeed / LinkedIn / WTTJ / Tous)
-
-Ensuite tu sélectionnes les offres qui t'intéressent, et les CVs sont générés dans `/output/`.
-
----
-
-## 📄 Configuration du CV
-
-Ouvre `cv/generator.py` et remplis le dictionnaire `MON_PROFIL` avec tes infos :
-
-```python
-MON_PROFIL = {
-    "nom": "Prénom NOM",
-    "email": "ton@email.com",
-    "tel": "+33 6 XX XX XX XX",
-    "competences": ["Python", "SQL", "Docker"],
-    "experiences": [...],
-    "formations": [...],
-}
+Changer de modèle :
+```bash
+python chat.py --model mistral
 ```
 
-### Format de sortie
+### Génération de CV
 
-Change la variable `MODE` dans `cv/generator.py` :
+Nécessite [Typst](https://typst.app) :
+```bash
+winget install Typst.Typst
+```
 
-| Mode | Fichier généré | Utilisation |
-|------|---------------|-------------|
-| `"typst"` | `.typ` + `.pdf` | Meilleur rendu — nécessite [Typst](https://typst.app) |
-| `"md"` | `.md` | Ouvrir avec VS Code, Obsidian, etc. |
-| `"txt"` | `.txt` | Brut, universel |
+## Fonctionnalités
 
-Pour Typst : installer depuis [typst.app](https://typst.app/docs/install) ou `winget install Typst.Typst`
+| Feature | État |
+|---------|------|
+| Scraper Indeed | ✅ |
+| Scraper LinkedIn | ✅ |
+| Scraper WTTJ (Algolia + Playwright) | ✅ WIP |
+| UI swipe (démo) | ✅ |
+| Génération lettre de motivation (Ollama) | ✅ local |
+| Analyse gap profil / offre | ✅ local |
+| Génération CV (Typst) | ✅ |
+| Bot Discord | 🚧 bientôt |
+| Déploiement chatbot IA | 🚧 bientôt |
 
----
+## Notes
 
-## ⚠️ Notes importantes
-
-- **Indeed et LinkedIn bloquent les bots** — si ça ne scrape rien, c'est normal. Pistes : changer le User-Agent, ajouter des délais, utiliser Playwright.
-- **WTTJ** est le plus permissif des trois (API JSON publique).
-- Les offres scrapées sont sauvegardées dans `/data/` en JSON — tu peux les relire sans re-scraper.
-- Les sélecteurs CSS **peuvent casser** si les sites changent leur HTML — c'est la vie du scraping.
-
----
-
-## 🔧 Dépendances
-
-| Package | Usage |
-|---------|-------|
-| `requests` | Requêtes HTTP |
-| `beautifulsoup4` | Parsing HTML |
-| `lxml` | Parser HTML rapide |
-
-> Pas de Playwright par défaut pour rester léger — à ajouter si les sites bloquent `requests`.
+- Indeed et LinkedIn bloquent activement les bots — rotation de User-Agent et délais aléatoires déjà intégrés.
+- WTTJ utilise une API Algolia publique + Playwright pour les pages d'offres.
+- L'assistant IA tourne 100% en local via Ollama (aucune clé API requise).
+- Le projet tourne localement ; le déploiement en production est en cours.

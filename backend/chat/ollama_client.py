@@ -1,12 +1,6 @@
 """
-Client HTTP vers Ollama — zéro dépendances tierces (urllib stdlib uniquement).
+Client HTTP pour Ollama — stdlib urllib uniquement, zéro dépendances tierces.
 Ollama doit tourner localement : ollama serve
-
-C'est la couche qui parle à Ollama (le logiciel qui fait tourner le modèle d'IA en local).
-
-Imagine Ollama comme un serveur de restaurant qui tourne sur ton PC. Ce fichier, c'est le serveur qui prend ta commande et la lui apporte.
-
-
 """
 import json
 import urllib.request

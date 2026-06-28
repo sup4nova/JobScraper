@@ -1,5 +1,5 @@
 """
-Scraper Welcome to the Jungle — httpx (API Algolia) + Playwright (pages offres)
+Welcome to the Jungle scraper — httpx (Algolia API) + Playwright (job pages)
 """
 import random
 from urllib.parse import quote_plus
@@ -10,7 +10,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from fake_useragent import UserAgent
 
 
-# ── Constantes ────────────────────────────────────────────────────────────────
+# ── Constants ────────────────────────────────────────────────────────────────
 
 ALGOLIA_URL = "https://csekhvms53-dsn.algolia.net/1/indexes/*/queries"
 ALGOLIA_HEADERS = {
@@ -32,7 +32,7 @@ class WTTJScraper:
         self.city  = city
         self.limit = limit
 
-    # ── Point d'entrée ────────────────────────────────────────────────────────
+    # ── Entry point ───────────────────────────────────────────────────────────
 
     async def scrape(self) -> list[dict]:
         async with async_playwright() as pw:
@@ -56,7 +56,7 @@ class WTTJScraper:
 
         return jobs
 
-    # ── Récupération des URLs via API Algolia ─────────────────────────────────
+    # ── Fetch job URLs via Algolia API ────────────────────────────────────────
 
     async def _get_job_urls_api(self) -> list[str]:
         payload = {
@@ -72,11 +72,11 @@ class WTTJScraper:
                 r.raise_for_status()
                 data = r.json()
         except Exception as e:
-            print(f"    WTTJ — erreur API Algolia : {e}")
+            print(f"    WTTJ — Algolia API error: {e}")
             return []
 
         hits = data.get("results", [{}])[0].get("hits", [])
-        print(f"    WTTJ — {len(hits)} offres trouvées via Algolia")
+        print(f"    WTTJ — {len(hits)} hits from Algolia")
 
         urls = []
         for h in hits:
@@ -89,7 +89,7 @@ class WTTJScraper:
 
         return urls
 
-    # ── Scraping de chaque offre ──────────────────────────────────────────────
+    # ── Scrape each job page ──────────────────────────────────────────────────
 
     async def _scrape_jobs(self, page, job_urls: list[str]) -> list[dict]:
         jobs = []
@@ -105,31 +105,31 @@ class WTTJScraper:
             await page.goto(job_url, timeout=15_000, wait_until="domcontentloaded")
             await page.wait_for_timeout(random.randint(1000, 2000))
         except PlaywrightTimeout:
-            print(f"    WTTJ — timeout sur {job_url[:60]}...")
+            print(f"    WTTJ — timeout on {job_url[:60]}...")
             return None
 
         html = await page.content()
         soup = BeautifulSoup(html, "html.parser")
 
-        # Titre
+        # title
         title_el = soup.select_one("h1")
         if not title_el:
             return None
         title = title_el.get_text(strip=True)
 
-        # Entreprise
+        # company
         company_el = soup.select_one("[data-testid='organization-title']")
         if not company_el:
             company_el = soup.select_one("a[href*='/fr/companies/'] span")
         company = company_el.get_text(strip=True) if company_el else ""
 
-        # Ville
+        # city
         city_el = soup.select_one("[data-testid='job-location']")
         if not city_el:
             city_el = soup.select_one("[name='map-pin'] ~ span")
         city = city_el.get_text(strip=True) if city_el else ""
 
-        # Salaire
+        # salary
         salary = ""
         salary_el = soup.select_one("[data-testid='job-salary']")
         if not salary_el:
@@ -141,7 +141,7 @@ class WTTJScraper:
         else:
             salary = salary_el.get_text(strip=True)
 
-        # Type de contrat
+        # contract type
         contract_type = ""
         contract_el = soup.select_one("[data-testid='contract-type']")
         if not contract_el:
@@ -149,7 +149,7 @@ class WTTJScraper:
         if contract_el:
             contract_type = contract_el.get_text(strip=True)
 
-        # Niveau d'étude
+        # education level
         education = ""
         for tag in soup.select("[data-testid='job-tag'], [data-testid='job-education']"):
             text = tag.get_text(strip=True)
@@ -157,13 +157,13 @@ class WTTJScraper:
                 education = text
                 break
 
-        # Télétravail
+        # remote
         remote = ""
         remote_el = soup.select_one("[data-testid='job-remote']")
         if remote_el:
             remote = remote_el.get_text(strip=True)
 
-        # Description
+        # description
         desc_el = soup.select_one("[data-testid='job-description']")
         if not desc_el:
             desc_el = soup.select_one(".job-description")

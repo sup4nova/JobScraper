@@ -1,6 +1,6 @@
 """
-Scraper LinkedIn — undetected-chromedriver + Selenium
-Même stack qu'Indeed pour éviter les conflits asyncio/Playwright sur Windows.
+LinkedIn scraper — undetected-chromedriver + Selenium
+Same stack as Indeed to avoid asyncio/Playwright conflicts on Windows.
 """
 import time
 import random
@@ -34,7 +34,7 @@ class LinkedInScraper:
         self.city  = city
         self.limit = limit
 
-    # ── Driver ────────────────────────────────────────────────────────────────
+    # ── Browser setup ────────────────────────────────────────────────────────
 
     def _make_driver(self):
         options = uc.ChromeOptions()
@@ -42,7 +42,7 @@ class LinkedInScraper:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
-        options.add_argument("--remote-debugging-port=0")  # ← port aléatoire pour éviter le conflit
+        options.add_argument("--remote-debugging-port=0")  # random port to avoid conflicts with other Chrome instances
         options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
         options.add_argument(f"user-agent={UserAgent().random}")
 
@@ -52,10 +52,10 @@ class LinkedInScraper:
             version_main=None,
         )
         return driver
-    # ── Points d'entrée ───────────────────────────────────────────────────────
+    # ── Entry points ──────────────────────────────────────────────────────────
 
     def scrape(self) -> list[dict]:
-        """Version synchrone — utilisée par le CLI."""
+        """Synchronous version, used by the CLI."""
         driver = self._make_driver()
         try:
             return self._search(driver)
@@ -63,12 +63,12 @@ class LinkedInScraper:
             driver.quit()
 
     async def scrape_async(self) -> list[dict]:
-        """Version async — appelée par FastAPI."""
+        """Async wrapper, called by FastAPI."""
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as pool:
             return await loop.run_in_executor(pool, self.scrape)
 
-    # ── Recherche ─────────────────────────────────────────────────────────────
+    # ── Search ───────────────────────────────────────────────────────────────
 
     def _search(self, driver) -> list[dict]:
         url = (
@@ -79,7 +79,7 @@ class LinkedInScraper:
         driver.get(url)
         time.sleep(random.uniform(2, 4))
 
-        # Scroll pour déclencher le lazy loading
+        # scroll to trigger lazy loading
         for _ in range(4):
             driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8)")
             time.sleep(random.uniform(0.7, 1.2))
@@ -91,8 +91,6 @@ class LinkedInScraper:
             or soup.select("div.base-card")
             or soup.select("li.result-card")
         )
-
-        print(f"    [debug] LinkedIn — {len(cards)} cartes trouvées")
 
         jobs      = []
         seen_urls = set()
@@ -108,7 +106,7 @@ class LinkedInScraper:
 
         return jobs
 
-    # ── Parsing d'une carte ───────────────────────────────────────────────────
+    # ── Card parsing ─────────────────────────────────────────────────────────
 
     def _parse_card(self, card) -> dict | None:
         title_el = (

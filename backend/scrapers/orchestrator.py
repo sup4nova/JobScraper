@@ -1,5 +1,5 @@
 """
-Orchestrateur : lance les scrapers en parallèle et agrège les résultats
+Runs all scrapers and merges the results.
 """
 import json
 import os
@@ -28,25 +28,25 @@ def run_scraping(poste: str, ville: str, limite: int, sites: list) -> list[Offre
         try:
             print(f"  → Scraping {site}...")
             resultats = scraper(poste=poste, ville=ville, limite=limite)
-            print(f"     {len(resultats)} offres trouvées sur {site}")
+            print(f"     {len(resultats)} jobs found on {site}")
             offres.extend(resultats)
         except Exception as e:
-            print(f"  ⚠️  Erreur sur {site} : {e}")
+            print(f"  ⚠️  Error on {site}: {e}")
 
-    # Sauvegarde brute en JSON (pour debug / reprise)
-    _sauvegarder(offres, poste, ville)
+    # Save raw results to JSON for later reuse
+    _save(offres, poste, ville)
 
     return offres
 
 
-def _sauvegarder(offres: list[Offre], poste: str, ville: str):
-    """Sauvegarde les offres en JSON dans /data/"""
+def _save(offres: list[Offre], poste: str, ville: str):
+    """Save offers to /data/ as JSON."""
     os.makedirs("data", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nom = f"data/offres_{poste.replace(' ', '_')}_{timestamp}.json"
+    path = f"data/offres_{poste.replace(' ', '_')}_{timestamp}.json"
 
     data = [vars(o) for o in offres]
-    with open(nom, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"\n  💾 Offres sauvegardées dans {nom}")
+    print(f"\n  Saved to {path}")

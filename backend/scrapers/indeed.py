@@ -1,7 +1,5 @@
 """
-Scraper Indeed — undetected-chromedriver + webdriver-manager
-Dépendances :
-    pip install undetected-chromedriver webdriver-manager selenium fake-useragent
+Indeed scraper — undetected-chromedriver + webdriver-manager
 """
 import time
 import random
@@ -45,7 +43,7 @@ class IndeedScraper:
         self.city  = city
         self.limit = limit
 
-    # ── Driver ────────────────────────────────────────────────────────────────
+    # ── Browser setup ────────────────────────────────────────────────────────
 
     def _make_driver(self):
         options = uc.ChromeOptions()
@@ -62,10 +60,10 @@ class IndeedScraper:
         )
         return driver
 
-    # ── Points d'entrée ───────────────────────────────────────────────────────
+    # ── Entry points ──────────────────────────────────────────────────────────
 
     def scrape(self) -> list[dict]:
-        """Version synchrone — utilisée par le CLI."""
+        """Synchronous version, used by the CLI."""
         driver = self._make_driver()
         try:
             return self._search(driver)
@@ -73,12 +71,12 @@ class IndeedScraper:
             driver.quit()
 
     async def scrape_async(self) -> list[dict]:
-        """Version async — appelée par FastAPI."""
+        """Async wrapper, called by FastAPI."""
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as pool:
             return await loop.run_in_executor(pool, self.scrape)
 
-    # ── Recherche + pagination ────────────────────────────────────────────────
+    # ── Search + pagination ───────────────────────────────────────────────────
 
     def _search(self, driver) -> list[dict]:
         query_enc = quote_plus(self.query)
@@ -86,7 +84,7 @@ class IndeedScraper:
         driver.get(f"{self.BASE}/jobs?q={query_enc}&l={city_enc}")
         time.sleep(random.uniform(2, 4))
 
-        # Bannière cookies
+        # dismiss cookie banner
         try:
             btn = WebDriverWait(driver, 4).until(
                 EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
@@ -117,7 +115,7 @@ class IndeedScraper:
             if not job_elements:
                 job_elements = container.find_elements(By.CSS_SELECTOR, "li.css-5lfssm")
             if not job_elements:
-                print("    ⚠️  Aucune carte trouvée — sélecteurs peut-être obsolètes")
+                print("    ⚠️  no job cards found — selectors may be outdated")
                 break
 
             for job_el in job_elements:
@@ -128,7 +126,7 @@ class IndeedScraper:
                     seen_urls.add(job["url"])
                     jobs.append(job)
 
-            # Page suivante
+            # next page
             try:
                 next_btn = driver.find_element(
                     By.CSS_SELECTOR, "a[data-testid='pagination-page-next']"
@@ -146,7 +144,7 @@ class IndeedScraper:
 
         return jobs
 
-    # ── Parsing d'une carte ───────────────────────────────────────────────────
+    # ── Card parsing ─────────────────────────────────────────────────────────
 
     def _parse_element(self, job_el) -> dict | None:
         try:
@@ -190,7 +188,7 @@ class IndeedScraper:
             "description":   "\n".join(description),
         }
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
+    # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _safe_text(self, parent, selector: str) -> str:
         try:

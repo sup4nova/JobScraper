@@ -16,18 +16,6 @@ from chat import tools
 
 
 # ── Prompt du routeur ─────────────────────────────────────────────────────────
-#Le _ROUTER_SYSTEM (agent.py:20) est un prompt qui demande à l'IA 
-# de répondre uniquement avec un JSON comme 
-# {"intent": "letter", "args": {"index": 2}}. 
-# C'est ce qu'on appelle un routeur d'intentions.
-
-# Intent	Déclencheur exemple	Action
-# scrape	"cherche des offres dev Python"	Lance tools.scrape_jobs()
-# letter	"génère une lettre pour l'offre 1"	Lance tools.generate_letter()
-# gap	"qu'est-ce qui manque dans mon profil ?"	Lance tools.analyze_gap()
-# translate	"traduis en anglais"	Lance tools.translate_text()
-# show	"montre les offres"	Réaffiche les offres en mémoire
-# chat	"c'est quoi un CDI ?"	Conversation libre avec l'IA
 
 _ROUTER_SYSTEM = """\
 Tu es le routeur d'un assistant de recherche d'emploi.
@@ -202,14 +190,6 @@ def run(model: str = DEFAULT_MODEL):
             print(f"  Ou relance avec : python chat.py --model {local[0]}\n")
         return
 
-    # # Chargement du profil
-
-    # La mémoire de session (agent.py:140) : le bot garde en RAM pendant la conversation :
-
-    # session_offres — la liste des offres scrapées
-    # last_letter — la dernière lettre générée (pour pouvoir la traduire)
-    # history — les derniers échanges du mode chat (pour que l'IA se souvienne du contexte)
-                                                
     profil = _load_profil()
     if profil and profil.get("name") not in ("", "test", None):
         print(f"\nProfil : {profil.get('name')} — {profil.get('title')}")

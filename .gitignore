@@ -39,3 +39,8 @@ liked_jobs.json
 profil.json
 backend/cv/output/
 scraped_jobs.csv
+
+# Partie IA locale (Ollama) — pas encore déployée
+backend/chat/
+backend/cv/
+chat.py

@@ -1,5 +1,5 @@
 """
-Modèle de données pour une offre d'emploi
+Job offer data model.
 """
 from dataclasses import dataclass, field
 from typing import Optional
@@ -7,24 +7,24 @@ from typing import Optional
 
 @dataclass
 class Offre:
-    # Infos principales
+    # Core fields
     titre: str
     entreprise: str
     ville: str
     lien: str
     source: str  # "indeed" | "linkedin" | "wttj"
 
-    # Infos optionnelles selon le site
+    # Optional — availability varies by source
     salaire: Optional[str] = None
     niveau_etude: Optional[str] = None
-    type_contrat: Optional[str] = None        # CDI, CDD, Stage...
+    type_contrat: Optional[str] = None  # CDI, CDD, internship...
     teletravail: Optional[str] = None
     description: Optional[str] = None
     competences: list = field(default_factory=list)
     date_publication: Optional[str] = None
 
     def afficher_resume(self, index: int):
-        """Affiche un résumé lisible dans le terminal"""
+        """Print a readable summary to the terminal."""
         print(f"\n{'─'*55}")
         print(f"  [{index}] {self.titre} — {self.entreprise}")
         print(f"  📍 {self.ville}   🌐 {self.source.upper()}")

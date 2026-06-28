@@ -3,19 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Find your next job by swiping</title>
+  <title>JobScraper - AI-powered job hunting · sup4nova</title>
+  <meta name="description" content="Swipe through AI-curated job listings scraped from LinkedIn, Indeed, Wellfound and more. Built by Anaïs Bodart." />
+  <meta property="og:title" content="JobScraper — Swipe your next job" />
+  <meta property="og:description" content="Swipe through AI-curated job listings scraped from LinkedIn, Indeed, Wellfound and more." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://sup4nova.com/projects/jobscraper" />
+  <meta property="og:image" content="https://sup4nova.com/og-image.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="JobScraper — Swipe your next job" />
+  <meta name="twitter:description" content="Swipe through AI-curated job listings scraped from LinkedIn, Indeed, Wellfound and more." />
+  <meta name="twitter:image" content="https://sup4nova.com/og-image.jpg" />
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">  <link rel="stylesheet" href="styles.css">
   <!-- Vue.js -->
-  <script
-    src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"
-    integrity="sha384-bkD9qcJiDlQRpeIQtZSHgyQEMvRBzmOI9lw2SZHkLOrliAdnLtxNIucoEAVG9QVA"
-    crossorigin="anonymous"
-  ></script>
+  <script src="./assets/vue.global.prod.js"></script>
 
   <style>
     .phone-body { position: relative; overflow: hidden; }
@@ -219,17 +224,14 @@
           class="scene discord-bot"
         >
           <div class="bot-intro">
-            <h2>Meet the <em>Discord Bot</em>!</h2>
-              <div style="max-width:320px; text-align:center; margin:12px auto 20px;">
-                <p>Get personalized job offer notifications, cover letters and more directly in Discord ! </p>
-              </div>
-              <a class="btn btn-primary"
-                href="https://discord.com/oauth2/authorize?client_id=1512816961527222312&permissions=8&scope=bot%20applications.commands"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Discover the Discord Bot
-              </a>
+            <h2>Discord Bot</h2>
+            <div style="max-width:320px; text-align:center; margin:12px auto 20px;">
+              <p>Get personalized job offer notifications, cover letters and more directly in Discord!</p>
+            </div>
+            <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(122,134,245,0.12);border:1px solid rgba(122,134,245,0.3);border-radius:20px;padding:8px 18px;font-size:13px;font-weight:600;color:#7A86F5;">
+              Coming soon
+            </div>
+            <p style="margin-top:16px;font-size:12px;color:#9490A8;">Fully functional locally but deployment in progress</p>
           </div>
         </section>
 
@@ -605,9 +607,9 @@
         <section v-else-if="scene === 'chat'" class="scene chat-panel" key="chat" data-screen-label="06 Chat">
           <div class="chat-panel-head">
             <div style="display:flex;align-items:center;gap:8px;">
-              <div class="chat-dot"></div>
+              <div class="chat-dot" style="background:#9490A8;box-shadow:none;"></div>
               <span class="chat-head-title">JobBot</span>
-              <span class="chat-head-sub">AI assistant · local</span>
+              <span class="chat-head-sub">AI assistant</span>
             </div>
             <button class="chat-close" @click="backToSwipe()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -615,23 +617,13 @@
               </svg>
             </button>
           </div>
-          <div class="chat-msgs" ref="chatScroller">
-            <div v-for="(msg, i) in chatMessages" :key="i" :class="['chat-brow', msg.role]">
-              <div class="chat-bbl" v-html="renderChatText(msg.text)"></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;">
+            <div style="font-size:2.4rem;"><img src="src/assets/favicon.svg" alt="robot" width="98" height="98"></div>
+            <h3 style="font-size:16px;font-weight:700;color:#1A1626;margin:0;">AI Bot</h3>
+            <p style="font-size:13px;color:#9490A8;max-width:240px;margin:0;">The AI assistant is still in development for now</p>            
+            <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(122,134,245,0.12);border:1px solid rgba(122,134,245,0.3);border-radius:20px;padding:8px 18px;font-size:12px;font-weight:600;color:#7A86F5;">
+              Coming soon
             </div>
-            <div v-if="chatLoading" class="chat-brow bot">
-              <div class="chat-bbl chat-dots"><span></span><span></span><span></span></div>
-            </div>
-          </div>
-          <div class="chat-foot">
-            <textarea v-model="chatInput" @keydown.enter.exact.prevent="sendChat" :disabled="chatLoading"
-                      placeholder="E.g.: generate a cover letter for job 1…" rows="1" class="chat-area"></textarea>
-            <button class="chat-send" @click="sendChat" :disabled="chatLoading || !chatInput.trim()">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2" fill="currentColor" stroke="none"/>
-              </svg>
-            </button>
           </div>
         </section>
       </transition>
