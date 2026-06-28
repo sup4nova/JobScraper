@@ -6,7 +6,6 @@ import json
 import os
 import asyncio
 import sys
-import json
 from pathlib import Path
 from pydantic import BaseModel
 from scrapers.indeed import IndeedScraper
@@ -18,82 +17,85 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from multiprocessing import Pool
 from multiprocessing import freeze_support
-freeze_support()  # nécessaire sur Windows pour éviter les erreurs "RuntimeError: An attempt has been made to start a new process before the current process has finished its bootstrapping phase."
-# Make backend/chat/ importable from here
+freeze_support()  # required on Windows to avoid a RuntimeError when spawning processes
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from chat.agent import handle_message, Session
 from chat.ollama_client import DEFAULT_MODEL
+
 app = FastAPI()
 
 CV_OUTPUT = Path(__file__).parent / "cv" / "output"
 CV_OUTPUT.mkdir(parents=True, exist_ok=True)
 app.mount("/cv", StaticFiles(directory=str(CV_OUTPUT)), name="cv")
 
-# Single session shared across requests — holds scraped jobs, last letter, chat history
-# (single-user only; swap for a per-cookie dict to support multiple users)
+# Single session shared across requests — holds scraped jobs, last letter, chat history.
+# Not thread-safe; swap for a per-cookie dict to support multiple concurrent users.
 _session = Session()
 
+
 def _run_scrape_in_process(poste: str, ville: str, limite: int) -> list[dict]:
-    """Tourne dans un process séparé pour Indeed (Chrome) ; RemoteOK reste en HTTP simple."""
+    """Run all scrapers and return the merged results. Chrome-based ones run in a subprocess."""
     indeed_jobs = []
     linkedin_jobs = []
     wellfound_jobs = []
     try:
         linkedin_jobs = LinkedInScraper(query=poste, city=ville, limit=limite).scrape()
-        print(f">>> {len(linkedin_jobs)} jobs LinkedIn")
+        print(f">>> {len(linkedin_jobs)} LinkedIn jobs")
     except Exception as e:
-        print(f"❌ LinkedIn a planté : {type(e).__name__}: {e}")
+        print(f"LinkedIn error: {type(e).__name__}: {e}")
     try:
         with Pool(1) as p:
             wellfound_jobs = p.apply(WellfoundScraper(query=poste, city=ville, limit=limite).scrape)
-        print(f">>> {len(wellfound_jobs)} jobs Wellfound")
+        print(f">>> {len(wellfound_jobs)} Wellfound jobs")
     except Exception as e:
-        print(f"❌ Wellfound a planté : {type(e).__name__}: {e}")
+        print(f"Wellfound error: {type(e).__name__}: {e}")
     try:
         with Pool(1) as p:
             indeed_jobs = p.apply(IndeedScraper(query=poste, city=ville, limit=limite).scrape)
-        print(f">>> {len(indeed_jobs)} jobs Indeed")
+        print(f">>> {len(indeed_jobs)} Indeed jobs")
     except Exception as e:
-        print(f"❌ Indeed a planté : {type(e).__name__}: {e}")
+        print(f"Indeed error: {type(e).__name__}: {e}")
 
     remoteok_jobs = []
     try:
         remoteok_jobs = RemoteOKScraper(
             query=poste, city=ville, limit=limite, tags=tags_for(poste)
         ).scrape()
-        print(f">>> {len(remoteok_jobs)} jobs Remote OK")
+        print(f">>> {len(remoteok_jobs)} Remote OK jobs")
     except Exception as e:
-        print(f"❌ Remote OK a planté : {type(e).__name__}: {e}")
+        print(f"Remote OK error: {type(e).__name__}: {e}")
 
-    resultats = {
+    _print_recap({
         "Indeed":    indeed_jobs,
         "LinkedIn":  linkedin_jobs,
         "Remote OK": remoteok_jobs,
         "Wellfound": wellfound_jobs,
-    }
-    _print_recap(resultats)
+    })
 
     return indeed_jobs + linkedin_jobs + remoteok_jobs + wellfound_jobs
-    
+
+
 class ChatRequest(BaseModel):
-    message: str           # the user's message from the frontend
-    model: str = DEFAULT_MODEL  # Ollama model to use, defaults to qwen2.5:7b
+    message: str
+    model: str = DEFAULT_MODEL
 
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     try:
-        # Delegate to agent: routes the intent, calls the right tool, returns a string
         reply = handle_message(req.message, _session, req.model)
         return {"reply": reply}
     except ConnectionError as e:
-        # Ollama is not running — tell the frontend clearly instead of a 500
+        # Ollama isn't running — return a clear 503 instead of a generic 500
         raise HTTPException(status_code=503, detail=str(e))
+
 
 LIKED_FILE = Path("liked_jobs.json")
 
+
 class LikeRequest(BaseModel):
     jobs: list[dict]
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,7 +107,7 @@ app.add_middleware(
 
 @app.get("/api/hello")
 def hello():
-    return {"message": "Hello depuis FastAPI !"}
+    return {"message": "Hello from FastAPI!"}
 
 
 class ProfileSaveRequest(BaseModel):
@@ -138,12 +140,12 @@ def save_profile_route(req: ProfileSaveRequest):
 
 @app.post("/api/likes")
 def save_likes(req: LikeRequest):
-    # Charge les likes existants
+    # Load existing likes
     existing = []
     if LIKED_FILE.exists():
         existing = json.loads(LIKED_FILE.read_text(encoding="utf-8"))
 
-    # Ajoute les nouveaux sans doublons (par URL)
+    # Merge in new ones, deduplicating by URL
     seen = {j["url"] for j in existing}
     new_jobs = [j for j in req.jobs if j["url"] not in seen]
     existing.extend(new_jobs)
@@ -152,20 +154,22 @@ def save_likes(req: LikeRequest):
         json.dumps(existing, ensure_ascii=False, indent=2),
         encoding="utf-8"
     )
-    print(f">>> {len(new_jobs)} nouveaux likes sauvegardés ({len(existing)} total)")
+    print(f">>> saved {len(new_jobs)} new likes ({len(existing)} total)")
     return {"saved": len(new_jobs), "total": len(existing)}
+
 
 class ScrapeRequest(BaseModel):
     poste: str
     ville: str = "France"
     limite: int = 20
 
+
 @app.post("/api/generate-cvs")
 async def generate_cvs(req: LikeRequest):
     from cv.generator import generate_cv
 
     if not LIKED_FILE.exists():
-        raise HTTPException(status_code=404, detail="Aucun job liké trouvé")
+        raise HTTPException(status_code=404, detail="No liked jobs found")
 
     user = {}
     profil_path = Path("profil.json")
@@ -188,18 +192,18 @@ async def generate_cvs(req: LikeRequest):
 @app.post("/api/scrape")
 async def scrape(req: ScrapeRequest):
     try:
-        # Lance le scraper dans un process séparé via multiprocessing
         loop = asyncio.get_event_loop()
         jobs = await loop.run_in_executor(
             None,
             lambda: _run_scrape_in_process(req.poste, req.ville, req.limite)
         )
-        print(f">>> {len(jobs)} jobs trouvés")
+        print(f">>> {len(jobs)} jobs found")
         return {"jobs": jobs}
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
@@ -208,56 +212,55 @@ def main():
     print("        JOB SCRAPER + CV GENERATOR")
     print("=" * 50 + "\n")
 
-    poste      = input("Poste recherché : ").strip()
-    ville      = input("Ville (vide = toute la France) : ").strip() or "France"
-    limite_raw = input("Nombre max d'offres [20] : ").strip()
+    poste      = input("Job title (e.g. Python developer, data analyst): ").strip()
+    ville      = input("City (leave blank for all of France): ").strip() or "France"
+    limite_raw = input("Max results per site [20]: ").strip()
     limite     = int(limite_raw) if limite_raw.isdigit() else 20
 
-    print(f"\n⏳ Scraping Indeed + LinkedIn + Wellfound + Remote OK en cours...\n")
+    print("\nScraping Indeed + LinkedIn + Wellfound + Remote OK...\n")
 
     indeed_jobs = []
     try:
         indeed_jobs = IndeedScraper(query=poste, city=ville, limit=limite).scrape()
     except Exception as e:
-        print(f"❌ Indeed a planté : {e}")
+        print(f"Indeed error: {e}")
 
     linkedin_jobs = []
     try:
         linkedin_jobs = LinkedInScraper(query=poste, city=ville, limit=limite).scrape()
     except Exception as e:
-        print(f"❌ LinkedIn a planté : {e}")
+        print(f"LinkedIn error: {e}")
 
     remoteok_jobs = []
     try:
         remoteok_jobs = RemoteOKScraper(query=poste, city=ville, limit=limite).scrape()
     except Exception as e:
-        print(f"❌ Remote OK a planté : {e}")
+        print(f"Remote OK error: {e}")
 
     wellfound_jobs = []
     try:
         wellfound_jobs = WellfoundScraper(query=poste, city=ville, limit=limite).scrape()
     except Exception as e:
-        print(f"❌ Wellfound a planté : {e}")
+        print(f"Wellfound error: {e}")
 
-    resultats = {
+    _print_recap({
         "Indeed":    indeed_jobs,
         "LinkedIn":  linkedin_jobs,
         "Remote OK": remoteok_jobs,
         "Wellfound": wellfound_jobs,
-    }
-    _print_recap(resultats)
+    })
 
     jobs = indeed_jobs + linkedin_jobs + remoteok_jobs + wellfound_jobs
     if not jobs:
-        print("❌ Aucune offre trouvée.")
+        print("No jobs found.")
+        return
 
-    print(f"\n✅ {len(jobs)} offres récupérées ({len(indeed_jobs)} Indeed, {len(linkedin_jobs)} LinkedIn, {len(remoteok_jobs)} Remote OK, {len(wellfound_jobs)} Wellfound).\n")
     save_csv(jobs)
-    offres_selectionnees = select_jobs(jobs)
-    if offres_selectionnees:
-        generer_cvs(offres_selectionnees)
+    selected = select_jobs(jobs)
+    if selected:
+        generate_cvs_cli(selected)
     else:
-        print("Aucune offre sélectionnée. À bientôt !")
+        print("No jobs selected. Bye!")
 
 
 # ── CSV ───────────────────────────────────────────────────────────────────────
@@ -274,51 +277,51 @@ def save_csv(offres: list[dict]):
         for job in offres:
             row = dict(job)
             if isinstance(row.get("easily_apply"), bool):
-                row["easily_apply"] = "Oui" if row["easily_apply"] else "Non"
+                row["easily_apply"] = "Yes" if row["easily_apply"] else "No"
             writer.writerow(row)
-    print(f"💾 Offres sauvegardées dans {csv_file}\n")
+    print(f"Saved to {csv_file}\n")
 
 
-# ── Sélecteur CLI ─────────────────────────────────────────────────────────────
+# ── Job picker ────────────────────────────────────────────────────────────────
 
 def select_jobs(offres: list[dict]) -> list[dict]:
     selected = []
     print("─" * 55)
-    print(f"Sélection des offres ({len(offres)} au total)")
-    print("  [o] garder   [n] ignorer   [q] terminer")
+    print(f"Pick your jobs ({len(offres)} total)")
+    print("  [y] keep   [n] skip   [q] done")
     print("─" * 55 + "\n")
 
     for i, offre in enumerate(offres, 1):
-        easily = " ⚡ Candidature simplifiée" if offre.get("easily_apply") else ""
+        easily = " ⚡ Easy Apply" if offre.get("easily_apply") else ""
         print(f"[{i}/{len(offres)}] {offre.get('title', '?')} — {offre.get('company', '?')}")
-        print(f"      📍 {offre.get('city', '?')}  💰 {offre.get('salary') or 'salaire non précisé'}{easily}")
+        print(f"      📍 {offre.get('city', '?')}  💰 {offre.get('salary') or 'salary not listed'}{easily}")
         print(f"      🔗 {offre.get('url', '')[:80]}")
         if offre.get("description"):
             print(f"      📝 {offre['description'].splitlines()[0][:120]}")
         print()
 
-        choix = input("      → Garder ? [o/n/q] : ").strip().lower()
+        choice = input("      → Keep? [y/n/q]: ").strip().lower()
         print()
-        if choix == "q":
+        if choice == "q":
             break
-        if choix == "o":
+        if choice == "y":
             selected.append(offre)
 
     print(f"{'─' * 55}")
-    print(f"✅ {len(selected)} offre(s) sélectionnée(s).\n")
+    print(f"{len(selected)} job(s) selected.\n")
     return selected
 
 
-# ── Génération CV ─────────────────────────────────────────────────────────────
+# ── CV generation ─────────────────────────────────────────────────────────────
 
-def generer_cvs(offres: list[dict]):
+def generate_cvs_cli(offres: list[dict]):
     from cv.generator import generate_cv
 
     print("─" * 55)
-    print("Génération des CVs")
+    print("Generating CVs")
     print("─" * 55 + "\n")
 
-    user = collecter_infos_user()
+    user = collect_user_profile()
 
     for offre in offres:
         print(f"  📄 {offre['title']} — {offre.get('company', '')}...")
@@ -326,57 +329,60 @@ def generer_cvs(offres: list[dict]):
         if path:
             print(f"     ✅ {path}")
         else:
-            print("     ❌ Échec (Typst installé ?)")
+            print("     ❌ Failed (is Typst installed?)")
     print()
-    return path
 
-# ── Profil utilisateur ────────────────────────────────────────────────────────
+
+# ── User profile ──────────────────────────────────────────────────────────────
 
 PROFIL_FILE = "profil.json"
 
 
-def collecter_infos_user() -> dict:
+def collect_user_profile() -> dict:
+    # Load saved profile if it exists
     if os.path.exists(PROFIL_FILE):
         with open(PROFIL_FILE, encoding="utf-8") as f:
             profil = json.load(f)
-        print(f"✅ Profil chargé depuis {PROFIL_FILE}")
-        if input("   Modifier ? [o/N] : ").strip().lower() != "o":
+        print(f"Profile loaded from {PROFIL_FILE}")
+        if input("   Edit profile? [y/N]: ").strip().lower() != "y":
             return profil
 
-    print("\nTes informations pour le CV :\n")
+    print("\nYour details for the CV:\n")
     profil = {
-        "name":           input("  Nom complet          : ").strip(),
-        "title":          input("  Titre / poste visé   : ").strip(),
-        "email":          input("  Email                : ").strip(),
-        "phone":          input("  Téléphone            : ").strip(),
-        "location":       input("  Ville                : ").strip(),
-        "github":         input("  GitHub (optionnel)   : ").strip(),
-        "summary":        input("  Accroche (1 ligne)   : ").strip(),
-        "skills":         input("  Compétences (virgule) : ").strip().replace(",", "\n"),
+        "name":           input("  Full name       : ").strip(),
+        "title":          input("  Target title    : ").strip(),
+        "email":          input("  Email           : ").strip(),
+        "phone":          input("  Phone           : ").strip(),
+        "location":       input("  City            : ").strip(),
+        "github":         input("  GitHub (opt.)   : ").strip(),
+        "summary":        input("  Tagline (1 line): ").strip(),
+        "skills":         input("  Skills (comma-separated): ").strip().replace(",", "\n"),
         "experience":     "",
         "education_text": "",
     }
 
+    # Save so it's pre-filled next run
     with open(PROFIL_FILE, "w", encoding="utf-8") as f:
         json.dump(profil, f, ensure_ascii=False, indent=2)
-    print(f"\n💾 Profil sauvegardé dans {PROFIL_FILE}\n")
+    print(f"\nProfile saved to {PROFIL_FILE}\n")
     return profil
 
+
 def _print_recap(resultats: dict[str, list]):
-    """Affiche un récap propre : nb d'offres par source + statut."""
+    """Print a scraping summary per source."""
     print("\n" + "═" * 50)
-    print("  RÉCAP DU SCRAPING")
+    print("  SCRAPING SUMMARY")
     print("═" * 50)
     total = 0
     for source, jobs in resultats.items():
         n = len(jobs)
         total += n
-        statut = "✅" if n > 0 else "⚠️ "
-        print(f"  {statut} {source:<12} : {n:>3} offre(s)")
+        status = "✅" if n > 0 else "⚠️ "
+        print(f"  {status} {source:<12} : {n:>3} job(s)")
     print("─" * 50)
-    print(f"  📦 TOTAL       : {total:>3} offre(s)")
+    print(f"  📦 TOTAL       : {total:>3} job(s)")
     print("═" * 50 + "\n")
+
 
 if __name__ == "__main__":
     main()
-    

@@ -1,12 +1,14 @@
 """
-Scraper Wellfound — undetected-chromedriver (passe Cloudflare) + JSON __NEXT_DATA__
+Wellfound scraper — undetected-chromedriver (bypasses Cloudflare) + JSON __NEXT_DATA__
 """
 import time
 import json
 import html
 import random
+import tempfile
+import os
 from urllib.parse import quote
-import tempfile, os
+
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -22,7 +24,7 @@ class WellfoundScraper:
 
     @staticmethod
     def _extract_locations(raw) -> list[str]:
-        """locationNames peut être une liste, un dict {'json': [...]}, ou None."""
+        """locationNames can be a list, a dict with a 'json' key, or None."""
         if isinstance(raw, list):
             return [str(x) for x in raw if x]
         if isinstance(raw, dict):
@@ -34,8 +36,6 @@ class WellfoundScraper:
         self.city  = city
         self.limit = limit
 
-    import tempfile, os
-
     def _make_driver(self):
         options = uc.ChromeOptions()
         options.add_argument("--window-size=1920,1080")
@@ -45,7 +45,7 @@ class WellfoundScraper:
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
-        # profil temporaire hors OneDrive → évite les verrous de synchro
+        # Temp profile outside OneDrive to avoid sync lock conflicts
         profile_dir = os.path.join(tempfile.gettempdir(), "uc_wellfound")
         options.add_argument(f"--user-data-dir={profile_dir}")
 
@@ -62,17 +62,16 @@ class WellfoundScraper:
         driver = self._make_driver()
         try:
             url = self._build_url()
-            print(f"🌐 Wellfound : {url}")
+            print(f"Wellfound: {url}")
             driver.get(url)
-            time.sleep(random.uniform(3, 6))  # laisse Cloudflare + JS se résoudre
+            time.sleep(random.uniform(3, 6))  # wait for Cloudflare challenge and JS to resolve
 
-            # Récupère le contenu du script __NEXT_DATA__
             try:
                 WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "script#__NEXT_DATA__"))
                 )
             except TimeoutException:
-                print("⛔ __NEXT_DATA__ absent — probablement bloqué par Cloudflare")
+                print("⛔ __NEXT_DATA__ not found — likely blocked by Cloudflare")
                 return []
 
             raw = driver.find_element(
@@ -91,7 +90,7 @@ class WellfoundScraper:
             data = json.loads(raw)
             graph = data["props"]["pageProps"]["apolloState"]["data"]
         except (KeyError, json.JSONDecodeError, TypeError):
-            print("⚠️  JSON __NEXT_DATA__ illisible")
+            print("⚠️  could not parse __NEXT_DATA__ JSON")
             return []
 
         jobs = []
@@ -120,14 +119,14 @@ class WellfoundScraper:
             if len(jobs) >= self.limit:
                 break
 
-        print(f"✅ {len(jobs)} offres récupérées (Wellfound)")
+        print(f"Wellfound — {len(jobs)} jobs found")
         return jobs
 
 
 if __name__ == "__main__":
     scraper = WellfoundScraper(query="devops", city="france", limit=10)
     jobs = scraper.scrape()
-    print(f"\n📦 {len(jobs)} offres :")
+    print(f"\n{len(jobs)} jobs:")
     for job in jobs:
-        print(f"  - {job['title']} ({job['city']})  💰 {job['salary'] or 'n/c'}")
+        print(f"  - {job['title']} ({job['city']})  💰 {job['salary'] or 'n/a'}")
         print(f"    🔗 {job['url']}")

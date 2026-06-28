@@ -35,8 +35,9 @@ Thumbs.db
 # Claude Code memory
 .claude/
 
-# Generated files (données utilisateur)
+# Generated files / runtime data
 liked_jobs.json
 profil.json
 backend/cv/output/
 scraped_jobs.csv
+backend/seen_jobs.json

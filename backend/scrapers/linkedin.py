@@ -1,6 +1,5 @@
 """
-Scraper LinkedIn — endpoint guest seeMoreJobPostings (HTTP, pas de navigateur)
-Dépendances : beautifulsoup4 (déjà installé)
+LinkedIn scraper — guest API endpoint (HTTP only, no browser needed)
 """
 import time
 import random
@@ -35,11 +34,11 @@ class LinkedInScraper:
         seen = set()
         start = 0
 
-        # L'endpoint pagine par tranches de 25 via le paramètre start
+        # The endpoint paginates in batches of 25 via the `start` param
         while len(jobs) < self.limit and start < 200:
             cards = self._fetch_page(start)
             if not cards:
-                break  # plus de résultats, ou LinkedIn a coupé
+                break  # no more results or LinkedIn cut us off
 
             for card in cards:
                 if len(jobs) >= self.limit:
@@ -51,15 +50,15 @@ class LinkedInScraper:
                     print(f"    LinkedIn — {job['title']} @ {job['company']}")
 
             start += 25
-            time.sleep(random.uniform(1.5, 3))  # respire pour éviter le 999
+            time.sleep(random.uniform(1.5, 3))  # breathe to avoid 429s
 
-        print(f"✅ {len(jobs)} offres récupérées (LinkedIn)")
+        print(f"LinkedIn — {len(jobs)} jobs found")
         return jobs
 
     async def scrape_async(self) -> list[dict]:
         return self.scrape()
 
-    # ── HTTP ────────────────────────────────────────────────────────────────
+    # ── HTTP ──────────────────────────────────────────────────────────────────
 
     def _fetch_page(self, start: int):
         params = {
@@ -73,11 +72,11 @@ class LinkedInScraper:
             with urllib.request.urlopen(req, timeout=20) as resp:
                 soup = BeautifulSoup(resp.read(), "html.parser")
         except urllib.error.HTTPError as e:
-            # 999 = anti-bot LinkedIn ; 400 = fin de pagination
-            print(f"⚠️  LinkedIn HTTP {e.code} à start={start}")
+            # 999 = LinkedIn anti-bot block; 400 = end of pagination
+            print(f"LinkedIn HTTP {e.code} at start={start}")
             return []
         except Exception as e:
-            print(f"❌ LinkedIn erreur : {type(e).__name__}: {e}")
+            print(f"LinkedIn error: {type(e).__name__}: {e}")
             return []
 
         return soup.select("li") or soup.select("div.base-card")
@@ -109,17 +108,16 @@ class LinkedInScraper:
             "city":          city,
             "salary":        "",
             "education":     "",
-            "contract_type": "",   # pas de date ici (ne pas confondre avec le contrat)
+            "contract_type": "",
             "easily_apply":  False,
             "description":   "",
         }
 
 
 if __name__ == "__main__":
-    print("🔍 Scraper LinkedIn (guest)")
     scraper = LinkedInScraper(query="devops", city="France", limit=10)
     jobs = scraper.scrape()
-    print(f"\n📦 {len(jobs)} offres :")
+    print(f"\n{len(jobs)} jobs:")
     for job in jobs:
         print(f"  - {job['title']} @ {job['company']} ({job['city']})")
         print(f"    🔗 {job['url']}")
