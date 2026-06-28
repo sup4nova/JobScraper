@@ -8,11 +8,11 @@ Scrapes job listings from Indeed, LinkedIn, Wellfound, and Remote OK, then surfa
 
 | Feature | Status |
 |---|---|
-| Scraping — Indeed, LinkedIn, Wellfound, Remote OK | ✅ Working |
+| Scraping - Indeed, LinkedIn, Wellfound, Remote OK | ✅ Working |
 | Vue.js job dashboard (search, filter, like) | ✅ Working |
 | FastAPI REST backend | ✅ Working |
 | Docker deployment (backend + frontend) | ✅ Working |
-| Discord bot — job cards with Apply / Hide buttons | ✅ Local only |
+| Discord bot - job cards with Apply / Hide buttons | ✅ Local only |
 | WTTJ scraper | 🚧 WIP |
 | AI assistant (Ollama) | 🚧 Local only |
 | Tailored CV generator (Typst) | 🚧 Local only |
@@ -50,10 +50,10 @@ JobScrapper/
 ```
 
 **Not in the repo** (local-only, gitignored):
-- `backend/chat/` — Ollama LLM agent
-- `backend/cv/` — Typst CV generator
-- `profil.json`, `liked_jobs.json`, `seen_jobs.json` — runtime user data
-- `.env` — secrets (Discord token, channel ID)
+- `backend/chat/` - Ollama LLM agent
+- `backend/cv/` - Typst CV generator
+- `profil.json`, `liked_jobs.json`, `seen_jobs.json` - runtime user data
+- `.env` - secrets (Discord token, channel ID)
 
 ---
 
@@ -103,7 +103,7 @@ The API is available at `http://localhost:8000`.
 
 ## Frontend
 
-Open `frontend/index.html` directly in a browser, or serve it via the Docker setup below. No build step needed — Vue 3 is loaded from CDN.
+Open `frontend/index.html` directly in a browser, or serve it via the Docker setup below. No build step needed - Vue 3 is loaded from CDN.
 
 ---
 
@@ -181,7 +181,7 @@ See `backend/requirements.txt`. Key packages:
 
 ## Notes
 
-- **Indeed and LinkedIn block scrapers** — if results are empty, the site may have detected the request. Adding delays and rotating user agents helps.
+- **Indeed and LinkedIn block scrapers** - if results are empty, the site may have detected the request. Adding delays and rotating user agents helps.
 - **Wellfound** requires Chrome to be installed at the default path.
-- **Remote OK** is the most reliable source — public API, no auth, no browser.
-- CSS selectors and JSON structures may break if sites update their frontend — that's the nature of scraping.
+- **Remote OK** is the most reliable source - public API, no auth, no browser.
+- CSS selectors and JSON structures may break if sites update their frontend - that's the nature of scraping.
