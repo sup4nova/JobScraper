@@ -6,6 +6,14 @@ import json
 import os
 import asyncio
 import sys
+from multiprocessing import Pool
+from multiprocessing import freeze_support
+freeze_support()  # required on Windows to avoid a RuntimeError when spawning processes
+
+# Must run before the `scrapers.*` imports below, so this module is importable
+# regardless of the current working directory (e.g. `import backend.main`).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from pathlib import Path
 from pydantic import BaseModel
 from scrapers.indeed import IndeedScraper
@@ -15,10 +23,6 @@ from scrapers.wellfound import WellfoundScraper
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from multiprocessing import Pool
-from multiprocessing import freeze_support
-freeze_support()  # required on Windows to avoid a RuntimeError when spawning processes
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI()
 
