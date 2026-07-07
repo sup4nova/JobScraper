@@ -1,0 +1,418 @@
+/* ============================================================
+   JobScraper — Slidev custom theme
+   Art direction: sticker / chunky-border, coral + butter + periwinkle
+   Drop this next to slides.md and it's imported via the <style> block
+   on slide 1. Put fonts in your index.html or rely on Slidev `fonts:`.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --cream:   #F7F1E7;
+  --cream-2: #EFE7D5;
+  --ink:     #1A1626;
+  --ink-soft:#4A4358;
+  --paper:   #FFFFFF;
+  --coral:   #FF6E5A;
+  --coral-d: #E84B36;
+  --butter:  #FFD56B;
+  --peri:    #7A86F5;
+  --peri-d:  #4858DC;
+  --mint:    #8FD4A9;
+  --mint-d:  #169152;
+  --rose:    #FFC2B8;
+
+  --linkedin:#0A66C2;
+  --indeed:  #2557A7;
+  --remoteok:#FF4742;
+
+  --f-disp: 'Space Grotesk', system-ui, sans-serif;
+  --f-body: 'DM Sans', system-ui, sans-serif;
+  --f-serif:'Instrument Serif', ui-serif, serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ── Slide canvas ───────────────────────────────────────────── */
+.slidev-layout {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--f-body);
+  padding: 3.2rem 4rem;
+}
+
+.slidev-layout.js-dots {
+  background-image: radial-gradient(var(--ink) 2px, transparent 2px);
+  background-size: 34px 34px;
+  /* keep dots faint */
+  background-blend-mode: normal;
+}
+.slidev-layout.js-dots::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: var(--cream);
+  opacity: 0.94;
+  z-index: -1;
+}
+
+.serif { font-family: var(--f-serif); font-style: italic; font-weight: 400; }
+
+/* headings */
+.slidev-layout h1 {
+  font-family: var(--f-disp);
+  font-weight: 700;
+  font-size: 3.4rem;
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  margin-bottom: 1.4rem;
+}
+.slidev-layout h1 .serif { color: var(--coral-d); }
+.slidev-layout h2 {
+  font-family: var(--f-disp);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* kicker eyebrow */
+.js-kicker {
+  font-family: var(--f-disp);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--coral-d);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.4rem;
+}
+.js-kicker::before {
+  content: ""; width: 2rem; height: 3px; background: var(--coral-d); border-radius: 2px;
+}
+
+/* ── Cover ──────────────────────────────────────────────────── */
+.js-cover {
+  position: absolute; inset: 0;
+  background: var(--coral);
+  padding: 4rem 4.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+.js-cover .js-kicker { color: var(--ink); }
+.js-cover .js-kicker::before { background: var(--ink); }
+.js-cover h1 {
+  font-size: 7rem;
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+  margin: 0.6rem 0 0;
+}
+.js-cover h1 .serif { color: var(--paper); }
+.js-tagline {
+  font-size: 1.9rem;
+  font-weight: 500;
+  margin-top: 1.4rem;
+  max-width: 30ch;
+}
+.js-lede {
+  font-size: 1.2rem;
+  line-height: 1.5;
+  margin-top: 1rem;
+  max-width: 46ch;
+  color: #3a2f2c;
+}
+.js-cover-mascot {
+  position: absolute;
+  right: 4.5rem; top: 50%;
+  transform: translateY(-50%);
+}
+.js-credit {
+  position: absolute;
+  bottom: 1.6rem; left: 4.5rem;
+  font-family: var(--f-disp);
+  font-weight: 600;
+  font-size: 1rem;
+  opacity: 0.85;
+}
+
+/* mascot float */
+.mfloat { animation: mfloat 5s ease-in-out infinite; transform-origin: center; }
+@keyframes mfloat {
+  0%,100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-14px) rotate(3deg); }
+}
+
+/* ── Slide 2 — idea ─────────────────────────────────────────── */
+.js-lead {
+  font-size: 1.6rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  font-weight: 500;
+  max-width: 40ch;
+  margin: 1.2rem auto;
+}
+.js-bigq {
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-size: 3rem;
+  line-height: 1.08;
+  max-width: 24ch;
+  margin: 0.8rem auto;
+}
+.js-bigq .hl { color: var(--coral-d); }
+.js-closer {
+  font-size: 1.4rem;
+  line-height: 1.45;
+  font-weight: 500;
+  max-width: 44ch;
+  margin: 1.2rem auto 0;
+}
+.js-closer strong { color: var(--peri-d); }
+.js-swipe {
+  font-family: var(--f-disp);
+  font-weight: 700;
+  background: var(--butter);
+  border: 2.5px solid var(--ink);
+  border-radius: 8px;
+  padding: 0 0.5rem;
+  display: inline-block;
+  transform: rotate(-2deg);
+}
+
+/* ── Slide 3 — demo ─────────────────────────────────────────── */
+.js-points { margin-top: 0.5rem; }
+.js-point {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin-bottom: 1rem;
+  display: flex; gap: 0.8rem; align-items: flex-start;
+}
+.js-point .dot {
+  flex-shrink: 0;
+  width: 2.1rem; height: 2.1rem;
+  border-radius: 0.6rem;
+  border: 2.5px solid var(--ink);
+  display: grid; place-items: center;
+  font-size: 1.1rem;
+}
+.js-point .dot.c { background: var(--mint); }
+.js-point .dot.b { background: var(--peri); }
+.js-point strong { color: var(--coral-d); }
+.js-video {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  background: var(--ink); color: var(--cream) !important;
+  border-radius: 0.8rem;
+  padding: 0.8rem 1.3rem;
+  font-family: var(--f-disp); font-weight: 600; font-size: 1.1rem;
+  margin-top: 0.6rem;
+  box-shadow: 0 5px 0 0 rgba(0,0,0,0.35);
+  text-decoration: none;
+}
+.js-note {
+  margin-top: 1.4rem;
+  font-size: 1rem; color: var(--ink-soft);
+  border-left: 4px solid var(--peri);
+  padding-left: 1rem; line-height: 1.45;
+  font-style: italic;
+}
+.js-demo-frame {
+  position: relative;
+  border: 3px solid var(--ink);
+  border-radius: 2rem;
+  box-shadow: 0 10px 0 0 var(--ink);
+  overflow: hidden;
+  background: var(--paper);
+  aspect-ratio: 9 / 16;
+  max-height: 70vh;
+  margin-left: auto;
+  display: grid; place-items: center;
+}
+.js-demo-img { width: 100%; height: 100%; object-fit: cover; }
+.js-demo-fallback {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  text-align: center;
+  padding: 2rem;
+  font-size: 1rem; color: var(--ink-soft);
+  background: var(--cream-2);
+  z-index: -1;
+}
+.js-demo-fallback code { font-family: var(--f-mono); font-size: 0.9rem; }
+
+/* ── Slide 4 — architecture ─────────────────────────────────── */
+.js-arch {
+  display: grid;
+  place-items: center;
+  margin: 1rem 0;
+}
+.js-arch-caption {
+  text-align: center;
+  font-size: 1.2rem;
+  color: var(--ink-soft);
+  margin-top: 0.5rem;
+}
+.js-arch-caption strong { color: var(--ink); }
+/* mermaid node font */
+.slidev-layout .mermaid { font-family: var(--f-disp) !important; }
+.slidev-layout .mermaid .nodeLabel { font-weight: 600; }
+
+/* ── Slide 5 — sources ──────────────────────────────────────── */
+.js-sources { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1rem; }
+.js-src {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  border: 3px solid var(--ink);
+  border-radius: 1rem;
+  box-shadow: 0 6px 0 0 var(--ink);
+  overflow: hidden;
+  background: var(--paper);
+}
+.js-src-name {
+  display: flex; align-items: center;
+  padding: 1rem 1.4rem;
+  color: #fff;
+  font-family: var(--f-disp); font-weight: 700; font-size: 1.5rem;
+}
+.js-src-name.indeed { background: var(--indeed); }
+.js-src-name.linkedin { background: var(--linkedin); }
+.js-src-name.remoteok { background: var(--remoteok); }
+.js-src-name.wellfound { background: var(--ink); }
+.js-src-tech { padding: 1rem 1.4rem; font-size: 1.15rem; display: flex; align-items: center; }
+.js-src-tech code, .js-footnote code {
+  font-family: var(--f-mono); font-weight: 500;
+  background: var(--cream-2); border: 2px solid var(--ink);
+  border-radius: 6px; padding: 0 0.4rem; font-size: 0.95em;
+}
+.js-footnote { margin-top: 1.4rem; text-align: center; font-size: 1.2rem; }
+.js-footnote .chip {
+  background: var(--mint); border: 2.5px solid var(--ink);
+  border-radius: 999px; padding: 0.1rem 0.8rem; font-weight: 700;
+  font-family: var(--f-disp);
+}
+
+/* ── Slide 6 — code ─────────────────────────────────────────── */
+.js-code-copy { font-size: 1.25rem; line-height: 1.55; color: var(--ink-soft); padding-right: 1rem; }
+.slidev-layout .slidev-code-wrapper, .slidev-layout pre.slidev-code {
+  border: 3px solid var(--ink) !important;
+  border-radius: 1.2rem !important;
+  box-shadow: 0 8px 0 0 var(--ink);
+  font-family: var(--f-mono) !important;
+  font-size: 0.95rem !important;
+}
+.slidev-layout .shiki, .slidev-layout pre.shiki {
+  background: #1e1b29 !important;
+  padding: 1.4rem 1.6rem !important;
+  border-radius: 1rem !important;
+}
+
+/* ── Slide 7 — stack ────────────────────────────────────────── */
+.js-stack-label {
+  font-family: var(--f-disp); font-weight: 600;
+  font-size: 0.9rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-soft); margin: 1rem 0 0.6rem;
+}
+.js-stack { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+.tech {
+  display: flex; align-items: center; gap: 0.7rem;
+  border: 3px solid var(--ink);
+  border-radius: 0.9rem;
+  box-shadow: 0 6px 0 0 var(--ink);
+  padding: 0.7rem 1.2rem;
+  background: var(--paper);
+  font-family: var(--f-disp); font-weight: 600; font-size: 1.4rem;
+}
+.tech .tl {
+  width: 2.4rem; height: 2.4rem; border-radius: 0.6rem;
+  display: grid; place-items: center; flex-shrink: 0;
+  color: #fff; font-weight: 700; font-size: 1rem;
+}
+
+/* ── Slide 8 — challenges ───────────────────────────────────── */
+.js-chal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; margin-top: 1rem; }
+.js-chal {
+  border: 3px solid var(--ink);
+  border-radius: 1.2rem;
+  box-shadow: 0 8px 0 0 var(--ink);
+  background: var(--paper);
+  padding: 1.4rem 1.3rem 1.3rem;
+  position: relative;
+  overflow: hidden;
+}
+.js-chal::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 0.6rem; }
+.js-chal.c1::before { background: var(--coral); }
+.js-chal.c2::before { background: var(--peri); }
+.js-chal.c3::before { background: var(--mint); }
+.js-chal .emoji { font-size: 2.2rem; margin: 0.4rem 0; }
+.js-chal h3 { font-family: var(--f-disp); font-weight: 700; font-size: 1.4rem; margin: 0 0 0.7rem; }
+.js-chal .prob { font-size: 0.98rem; line-height: 1.4; color: var(--ink-soft); margin: 0 0 0.6rem; }
+.js-chal .act { font-size: 0.98rem; line-height: 1.4; margin: 0 0 0.7rem; color: var(--coral-d); font-weight: 600; }
+.js-chal .learn {
+  font-family: var(--f-disp); font-weight: 600;
+  font-size: 0.98rem; line-height: 1.35;
+  border-top: 2.5px solid var(--cream-2); padding-top: 0.7rem; margin: 0;
+}
+.js-chal.c1 .learn { color: var(--coral-d); }
+.js-chal.c2 .learn { color: var(--peri-d); }
+.js-chal.c3 .learn { color: var(--mint-d); }
+.js-chal code { font-family: var(--f-mono); background: var(--cream-2); border: 1.5px solid var(--ink); border-radius: 5px; padding: 0 0.3rem; font-size: 0.85em; }
+
+/* ── Slide 9 — what's next ──────────────────────────────────── */
+.js-next { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.2rem; }
+.js-next-item {
+  display: flex; gap: 1.4rem; align-items: center;
+  border: 3px solid var(--ink); border-radius: 1.2rem;
+  box-shadow: 0 8px 0 0 var(--ink);
+  background: var(--paper);
+  padding: 1.2rem 1.5rem;
+}
+.js-next-item .nemoji {
+  width: 4rem; height: 4rem; border-radius: 1rem;
+  border: 3px solid var(--ink);
+  display: grid; place-items: center; font-size: 2rem; flex-shrink: 0;
+}
+.js-next-item.n1 .nemoji { background: var(--butter); }
+.js-next-item.n2 .nemoji { background: var(--rose); }
+.js-next-item.n3 .nemoji { background: var(--mint); }
+.js-next-item .nt { font-family: var(--f-disp); font-weight: 700; font-size: 1.5rem; margin-bottom: 0.2rem; }
+.js-next-item .nd { font-size: 1.1rem; line-height: 1.4; color: var(--ink-soft); }
+.js-next-item .nd code { font-family: var(--f-mono); background: var(--cream-2); border: 2px solid var(--ink); border-radius: 5px; padding: 0 0.35rem; font-size: 0.9em; }
+
+/* ── Slide 10 — thanks ──────────────────────────────────────── */
+.slidev-layout.js-thanks {
+  background: var(--peri);
+}
+.js-thanks h1 { font-size: 5rem; }
+.js-thanks h1 .serif { color: var(--paper); }
+.js-thanks-mascot { display: flex; justify-content: center; margin-bottom: -0.5rem; }
+.js-links {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem;
+  width: min(40rem, 90%); margin: 1.4rem auto 0;
+}
+.js-links .lk {
+  display: flex; flex-direction: column;
+  background: var(--cream); border: 3px solid var(--ink);
+  border-radius: 1rem; box-shadow: 0 6px 0 0 var(--ink);
+  padding: 0.9rem 1.2rem;
+  text-decoration: none; color: var(--ink) !important;
+  text-align: left;
+}
+.js-links .lkl {
+  font-family: var(--f-disp); font-weight: 600;
+  font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.js-links .lkv { font-family: var(--f-disp); font-weight: 700; font-size: 1.25rem; margin-top: 0.1rem; }
+
+/* ── Code block selection / inline code default ─────────────── */
+.slidev-layout :not(pre) > code {
+  font-family: var(--f-mono);
+  background: var(--cream-2);
+  border: 1.5px solid var(--ink);
+  border-radius: 5px;
+  padding: 0 0.3rem;
+  color: var(--ink);
+}
+
+/* hide Slidev default heading borders if any */
+.slidev-layout h1 + p { opacity: 1; }
