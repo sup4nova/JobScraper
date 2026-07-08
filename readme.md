@@ -12,10 +12,10 @@ Scrapes job listings from Indeed, LinkedIn, Wellfound, and Remote OK, then surfa
 | Vue.js job dashboard (search, filter, like) | ✅ Working |
 | FastAPI REST backend | ✅ Working |
 | Docker deployment (backend + frontend) | ✅ Working |
-| Discord bot — job cards with Apply / Hide buttons | ✅ Local only |
+| Discord bot — job cards with Apply / Hide buttons | ✅ Needs a `.env` (not committed) |
 | WTTJ scraper | 🚧 WIP |
-| AI assistant (Ollama) | 🚧 Local only |
-| Tailored CV generator (Typst) | 🚧 Local only |
+| AI assistant (Ollama) | 🚧 Needs a local Ollama server |
+| Tailored CV generator (Typst) | 🚧 Needs the Typst CLI installed |
 
 ---
 
@@ -23,23 +23,23 @@ Scrapes job listings from Indeed, LinkedIn, Wellfound, and Remote OK, then surfa
 
 ```
 JobScrapper/
-├── main.py                    ← CLI entry point (scrape → pick → generate CV)
 ├── docker-compose.yml
+├── LICENSE
+├── .github/workflows/ci.yml   ← syntax check, pytest, frontend build, docker build
 ├── backend/
-│   ├── main.py                ← FastAPI app + scraping orchestration
-│   ├── models.py              ← Job data model
+│   ├── main.py                ← FastAPI app + CLI entry point (run directly: python main.py)
 │   ├── bot.py                 ← Discord bot
 │   ├── requirements.txt
+│   ├── requirements-dev.txt   ← + pytest, httpx (for backend/tests/)
 │   ├── Dockerfile
-│   ├── scrapers/
-│   │   ├── indeed.py          ← undetected-chromedriver
-│   │   ├── linkedin.py        ← guest HTTP API (no browser)
-│   │   ├── wellfound.py       ← undetected-chromedriver + __NEXT_DATA__ JSON
-│   │   ├── remote_ok.py       ← public JSON API (no browser)
-│   │   └── WIP/
-│   │       └── wttj.py        ← Playwright + Algolia (in progress)
-│   └── api/
-│       └── routes.py
+│   ├── tests/                 ← pytest: API endpoints + scraper helpers
+│   └── scrapers/
+│       ├── indeed.py          ← undetected-chromedriver
+│       ├── linkedin.py        ← guest HTTP API (no browser)
+│       ├── wellfound.py       ← undetected-chromedriver + __NEXT_DATA__ JSON
+│       ├── remote_ok.py       ← public JSON API (no browser)
+│       ├── wttj.py            ← Playwright + Algolia (in progress)
+│       └── _chrome.py         ← cross-platform Chrome binary/version resolution
 └── frontend/
     ├── index.html             ← Vue.js 3 (CDN, no build step)
     ├── public/
@@ -49,10 +49,10 @@ JobScrapper/
     └── nginx.conf
 ```
 
-**Not in the repo** (local-only, gitignored):
-- `backend/chat/` — Ollama LLM agent
-- `backend/cv/` — Typst CV generator
-- `profil.json`, `liked_jobs.json`, `seen_jobs.json` — runtime user data
+**Not in the repo** (gitignored):
+- `backend/chat/` — Ollama LLM agent, not deployed yet. Without it, `/api/chat` returns a 503.
+- `backend/cv/`, `chat.py` — Typst CV generator. Without it, CV generation fails.
+- `profil.json`, `liked_jobs.json`, `seen_jobs.json`, `scraped_jobs.csv` — runtime/user data, regenerated locally
 - `.env` — secrets (Discord token, channel ID)
 
 ---
@@ -120,13 +120,14 @@ docker-compose up --build
 
 ## CLI mode
 
-Run the scraper interactively from the terminal:
+`backend/main.py` doubles as a CLI when run directly (as opposed to via `uvicorn`):
 
 ```bash
+cd backend
 python main.py
 ```
 
-You'll be asked for a job title, city, max results per site, and which sites to use. Results are saved to `scraped_jobs.csv`.
+You'll be asked for a job title, city, and max results per site. All four scrapers run, results are saved to `scraped_jobs.csv`, and you can pick jobs to generate CVs for (requires the Typst CLI).
 
 ---
 

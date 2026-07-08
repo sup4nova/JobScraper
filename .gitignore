@@ -30,14 +30,18 @@ Thumbs.db
 !.vscode/extensions.json
 *.suo
 *.sw?
-/technical.md
 
 # Claude Code memory
 .claude/
 
-# Generated files / runtime data
+# Generated files (user data)
 liked_jobs.json
 profil.json
 backend/cv/output/
 scraped_jobs.csv
 backend/seen_jobs.json
+
+# Local AI parts (Ollama) - not deployed yet
+backend/chat/
+backend/cv/
+chat.py

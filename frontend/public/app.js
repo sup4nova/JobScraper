@@ -154,7 +154,7 @@ const App = {
       }
     }
 
-    // ── Sync profil → backend ──────────────────────────────
+    // ── Sync profile → backend ──────────────────────────────
     async function syncProfileToBackend() {
       const profil = {
         name:          profile.name,
@@ -417,13 +417,13 @@ const App = {
 
     // ── Mounted ────────────────────────────────────────────
     onMounted(() => {
-      // Events souris / touch
+      // Mouse / touch events
       window.addEventListener("mousemove", onPointerMove);
       window.addEventListener("mouseup",   onPointerUp);
       window.addEventListener("touchmove", onPointerMove, { passive: false });
       window.addEventListener("touchend",  onPointerUp);
 
-      // Thème + edit mode
+      // Theme + edit mode
       applyTheme(tweaks.theme);
       window.addEventListener("message", e => {
         if (e.data?.type === "__activate_edit_mode")   showTweaks.value = true;
@@ -431,7 +431,7 @@ const App = {
       });
       try { window.parent.postMessage({ type: "__edit_mode_available" }, "*"); } catch (_) {}
 
-      // Restaurer l'état persisté
+      // Restore persisted state
       const savedSwipes  = lsLoad(LS.swipes,  []);
       const savedProfile = lsLoad(LS.profile,  null);
       const savedJobs    = lsLoad(LS.jobs,     []);
