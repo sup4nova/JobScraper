@@ -1,22 +1,21 @@
 """
-Indeed scraper — Selenium + undetected-chromedriver
-Dependencies:
-    pip install undetected-chromedriver webdriver-manager selenium fake-useragent setuptools
+Indeed scraper - undetected-chromedriver + webdriver-manager
 """
 import time
 import random
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 
 import undetected_chromedriver as uc
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
-from scrapers._chrome import chrome_binary_location, chrome_version_main
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from fake_useragent import UserAgent
+
 
 _SALARY_KEYWORDS = ["€", "k€", "eur", "salaire", "rémunération", "par an", "par mois"]
 _EDU_KEYWORDS    = ["bac", "bts", "dut", "licence", "master", "ingénieur",
@@ -44,29 +43,27 @@ class IndeedScraper:
         self.city  = city
         self.limit = limit
 
-    # ── Driver ───────────────────────────────────────────────────────────────
+    # ── Browser setup ────────────────────────────────────────────────────────
 
     def _make_driver(self):
         options = uc.ChromeOptions()
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument(f"user-agent={UserAgent().random}")
         options.add_argument("--disable-blink-features=AutomationControlled")
-        binary = chrome_binary_location()
-        if binary:
-            options.binary_location = binary
+        options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+        options.add_argument(f"user-agent={UserAgent().random}")
 
         driver = uc.Chrome(
+            service=Service(ChromeDriverManager().install()),
             options=options,
-            version_main=chrome_version_main(),
         )
         return driver
 
-    # ── Entry points ─────────────────────────────────────────────────────────
+    # ── Entry points ──────────────────────────────────────────────────────────
 
     def scrape(self) -> list[dict]:
-        """Synchronous version — used by the CLI and the FastAPI executor."""
+        """Synchronous version, used by the CLI."""
         driver = self._make_driver()
         try:
             return self._search(driver)
@@ -74,26 +71,26 @@ class IndeedScraper:
             driver.quit()
 
     async def scrape_async(self) -> list[dict]:
-        """Delegates to scrape() — the executor in main.py handles the thread."""
-        return self.scrape()
+        """Async wrapper, called by FastAPI."""
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as pool:
+            return await loop.run_in_executor(pool, self.scrape)
 
-    # ── Search + pagination ──────────────────────────────────────────────────
+    # ── Search + pagination ───────────────────────────────────────────────────
 
     def _search(self, driver) -> list[dict]:
         query_enc = quote_plus(self.query)
         city_enc  = quote_plus(self.city)
         driver.get(f"{self.BASE}/jobs?q={query_enc}&l={city_enc}")
-        print(f"🌐 Page loaded: {driver.current_url}")
         time.sleep(random.uniform(2, 4))
 
-        # Cookie banner
+        # dismiss cookie banner
         try:
             btn = WebDriverWait(driver, 4).until(
                 EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
             )
             btn.click()
             time.sleep(1)
-            print("🍪 Cookies accepted")
         except TimeoutException:
             pass
 
@@ -108,20 +105,18 @@ class IndeedScraper:
                     )
                 )
             except TimeoutException:
-                print("⚠️  Container not found")
                 break
 
             container    = driver.find_element(By.CSS_SELECTOR, "#mosaic-provider-jobcards")
             job_elements = container.find_elements(
                 By.CSS_SELECTOR, "[data-testid='slider_item']"
             )
+
             if not job_elements:
                 job_elements = container.find_elements(By.CSS_SELECTOR, "li.css-5lfssm")
             if not job_elements:
-                print("⚠️  No cards found — selectors may be stale")
+                print("    ⚠️  no job cards found - selectors may be outdated")
                 break
-
-            print(f"📋 {len(job_elements)} cards found on this page")
 
             for job_el in job_elements:
                 if len(jobs) >= self.limit:
@@ -131,7 +126,7 @@ class IndeedScraper:
                     seen_urls.add(job["url"])
                     jobs.append(job)
 
-            # Next page
+            # next page
             try:
                 next_btn = driver.find_element(
                     By.CSS_SELECTOR, "a[data-testid='pagination-page-next']"
@@ -147,53 +142,16 @@ class IndeedScraper:
             except NoSuchElementException:
                 break
 
-        print(f"✅ {len(jobs)} jobs collected")
-        print(jobs[0] if jobs else "No job to display")
         return jobs
 
-    # ── Parsing a card ───────────────────────────────────────────────────────
+    # ── Card parsing ─────────────────────────────────────────────────────────
 
     def _parse_element(self, job_el) -> dict | None:
-        title_el = None
-        for sel in ["h2.jobTitle", "h2[data-testid='jobTitle']", "h2", ".jobTitle"]:
-            try:
-                title_el = job_el.find_element(By.CSS_SELECTOR, sel)
-                break
-            except NoSuchElementException:
-                continue
-
-        if not title_el:
-            print("    ❌ No title selector matched")
-            return None
-
-        # 2. Read the title, skip empty cards (placeholders / ads)
-        title = title_el.text.strip()
-        if not title:
-            return None
-
-        # 3. Extract the jk (prefer data-jk, present even on sponsored cards)
-        jk = job_el.get_attribute("data-jk")
-        if not jk:
-            try:
-                jk = job_el.find_element(By.CSS_SELECTOR, "[data-jk]").get_attribute("data-jk")
-            except NoSuchElementException:
-                jk = None
-
-        # 4. Clean URL if we have the jk, else fall back to the card's href
-        url = None
-        if jk:
-            url = f"https://fr.indeed.com/viewjob?jk={jk}"
-        else:
-            try:
-                url = title_el.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-            except NoSuchElementException:
-                try:
-                    url = job_el.find_element(By.CSS_SELECTOR, "a.jcs-JobTitle").get_attribute("href")
-                except NoSuchElementException:
-                    pass
-
-        if not url:
-            print(f"    ❌ URL not found for: {title}")
+        try:
+            title_el = job_el.find_element(By.CSS_SELECTOR, "h2.jobTitle")
+            title    = title_el.text
+            url      = title_el.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+        except NoSuchElementException:
             return None
 
         company = self._safe_text(job_el, "[data-testid='company-name']")
@@ -215,7 +173,7 @@ class IndeedScraper:
         except NoSuchElementException:
             pass
 
-        print(f"    Indeed — {title} @ {company} ({city})")
+        print(f"    Indeed - {title} @ {company} ({city})")
 
         return {
             "source":        "indeed",
@@ -268,12 +226,3 @@ class IndeedScraper:
                 contract_parts.append(tag)
 
         return salary, education, contract_parts
-    
-if __name__ == "__main__":
-    print("🔍 Starting scraper...")
-    scraper = IndeedScraper(query="developpeur python", city="Paris", limit=5)
-    jobs = scraper.scrape()
-    print(f"\n📦 {len(jobs)} jobs found:")
-    for job in jobs:
-        print(f"  - {job['title']} @ {job['company']} ({job['city']})")
-        print(f"    🔗 {job['url']}")

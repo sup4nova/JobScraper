@@ -19,3 +19,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Additional disclaimer: this software includes scrapers that interact with
+third-party websites (e.g. Indeed, LinkedIn, Wellfound) in ways that may
+conflict with those sites' Terms of Service. This license grants rights to
+the software's source code only — it does not grant, and should not be
+read as granting, permission to violate any third party's Terms of Service.
+Users are solely responsible for how they use this software and for
+complying with applicable terms and laws in their jurisdiction.

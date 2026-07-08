@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  # ── Backend: syntax check ──────────────────────────────────────
+  # ── Backend: lint + syntax check ─────────────────────────────────
   backend:
     runs-on: ubuntu-latest
 
@@ -20,6 +20,12 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint (ruff)
+        run: ruff check backend/
 
       - name: Syntax check
         run: python -m compileall -q backend/
@@ -41,7 +47,9 @@ jobs:
       - name: Run pytest
         run: pytest backend/tests/ -v
 
-  # ── Frontend: build ──────────────────────────────────────────────
+  # ── Frontend: syntax check ─────────────────────────────────────────
+  # No build step by design - Vue is loaded from CDN directly in index.html
+  # (see frontend/Dockerfile), so there's nothing to bundle.
   frontend:
     runs-on: ubuntu-latest
 
@@ -52,11 +60,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install
-        run: cd frontend && npm ci
-
-      - name: Build
-        run: cd frontend && npm run build
+      - name: Syntax check
+        run: for f in frontend/public/*.js; do node --check "$f" || exit 1; done
 
   # ── Docker: checks that the images build ─────────────────────────
   docker:

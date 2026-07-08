@@ -13,9 +13,8 @@ Scrapes job listings from Indeed, LinkedIn, Wellfound, and Remote OK, then surfa
 | FastAPI REST backend | ✅ Working |
 | Docker deployment (backend + frontend) | ✅ Working |
 | Discord bot — job cards with Apply / Hide buttons | ✅ Needs a `.env` (not committed) |
-| WTTJ scraper | 🚧 WIP |
-| AI assistant (Ollama) | 🚧 Needs a local Ollama server |
-| Tailored CV generator (Typst) | 🚧 Needs the Typst CLI installed |
+
+An AI chat assistant and a CV generator exist as local, unpublished experiments — see [Roadmap](#roadmap).
 
 ---
 
@@ -38,7 +37,6 @@ JobScrapper/
 │       ├── linkedin.py        ← guest HTTP API (no browser)
 │       ├── wellfound.py       ← undetected-chromedriver + __NEXT_DATA__ JSON
 │       ├── remote_ok.py       ← public JSON API (no browser)
-│       ├── wttj.py            ← Playwright + Algolia (in progress)
 │       └── _chrome.py         ← cross-platform Chrome binary/version resolution
 └── frontend/
     ├── index.html             ← Vue.js 3 (CDN, no build step)
@@ -50,8 +48,7 @@ JobScrapper/
 ```
 
 **Not in the repo** (gitignored):
-- `backend/chat/` — Ollama LLM agent, not deployed yet. Without it, `/api/chat` returns a 503.
-- `backend/cv/`, `chat.py` — Typst CV generator. Without it, CV generation fails.
+- `backend/chat/`, `backend/cv/`, `chat.py` — local-only prototypes, see [Roadmap](#roadmap)
 - `profil.json`, `liked_jobs.json`, `seen_jobs.json`, `scraped_jobs.csv` — runtime/user data, regenerated locally
 - `.env` — secrets (Discord token, channel ID)
 
@@ -127,7 +124,7 @@ cd backend
 python main.py
 ```
 
-You'll be asked for a job title, city, and max results per site. All four scrapers run, results are saved to `scraped_jobs.csv`, and you can pick jobs to generate CVs for (requires the Typst CLI).
+You'll be asked for a job title, city, and max results per site. All four scrapers run and results are saved to `scraped_jobs.csv`.
 
 ---
 
@@ -140,6 +137,10 @@ Create a `.env` file in the `backend/` folder:
 ```env
 DISCORD_TOKEN=your_bot_token
 DISCORD_CHANNEL_ID=your_channel_id
+
+# Optional — comma-separated list of allowed origins for the API's CORS policy.
+# Defaults to the Docker frontend + direct file:// access.
+# CORS_ORIGINS=http://localhost:8001,null
 ```
 
 Run it:
@@ -159,9 +160,20 @@ python bot.py
 | LinkedIn | Guest HTTP API | No browser needed |
 | Wellfound | undetected-chromedriver + `__NEXT_DATA__` | Parses Next.js JSON blob |
 | Remote OK | Public JSON API | No browser, no auth |
-| WTTJ | Playwright + Algolia API | WIP |
 
 Chrome-based scrapers (Indeed, Wellfound) run in a subprocess via `multiprocessing.Pool` to avoid driver conflicts.
+
+---
+
+## Legal / Terms of Service
+
+Scraping Indeed, LinkedIn, and Wellfound goes against their Terms of Service — this is a known, deliberate tradeoff, not an oversight. This project was built for **personal, low-volume, educational use** (searching for my own job applications), not for redistribution, resale, or bulk data collection:
+
+- No scraped data is republished or sold; it's used locally to generate a personal shortlist and cover letters.
+- Requests are rate-limited (randomized delays between pages/cards) and use rotating user agents — not to evade detection maliciously, but to avoid hammering these sites.
+- Remote OK uses a public JSON API, not scraping.
+
+If you reuse this code, you're responsible for complying with the target sites' Terms of Service in your jurisdiction. The [MIT license](LICENSE) already disclaims warranty and liability for the software itself; it does not authorize violating a third party's ToS.
 
 ---
 
@@ -174,7 +186,6 @@ See `backend/requirements.txt`. Key packages:
 | `fastapi` + `uvicorn` | REST API server |
 | `undetected-chromedriver` | Anti-bot Chrome driver |
 | `beautifulsoup4` | HTML parsing (LinkedIn) |
-| `playwright` | WTTJ scraper (WIP) |
 | `discord.py` | Discord bot |
 | `python-dotenv` | `.env` loading |
 
@@ -186,3 +197,12 @@ See `backend/requirements.txt`. Key packages:
 - **Indeed and Wellfound** auto-detect the Chrome binary and version (`backend/scrapers/_chrome.py`) — works out of the box on both Windows and the Docker image. To pin a specific install, set `CHROME_BINARY` / `CHROME_VERSION_MAIN` in `.env`.
 - **Remote OK** is the most reliable source — public API, no auth, no browser.
 - CSS selectors and JSON structures may break if sites update their frontend — that's the nature of scraping.
+
+---
+
+## Roadmap
+
+- [ ] **Publish the AI chat assistant** (`backend/chat/`) — currently a local prototype that routes natural-language requests (scrape, write a cover letter, gap analysis, translate) to a self-hosted [Ollama](https://ollama.com/) model. Not committed yet: needs a packaged/hosted LLM story before it's something a cloned repo can actually run, rather than a 503.
+- [ ] **Publish the CV generator** (`backend/cv/`) — currently a local prototype that fills a [Typst](https://github.com/typst/typst) template from a job + profile and compiles it to PDF via the `typst` CLI. Not committed yet: needs the external CLI dependency either bundled (Docker) or clearly documented as a setup step.
+- [ ] WTTJ scraper (Playwright + Algolia API) — removed as an incomplete WIP; to be rebuilt and shipped complete rather than half-working
+- [ ] Config-driven API base URL — replace hardcoded `http://localhost:8000` in `bot.py` and the frontend

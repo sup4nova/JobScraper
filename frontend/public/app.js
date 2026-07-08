@@ -17,7 +17,7 @@ function lsSave(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
   } catch (e) {
-    console.warn("[JobSwipe] localStorage indisponible :", e.name);
+    console.warn("[JobSwipe] localStorage unavailable:", e.name);
   }
 }
 function lsLoad(key, fallback) {
@@ -25,10 +25,16 @@ function lsLoad(key, fallback) {
     const r = localStorage.getItem(key);
     return r ? JSON.parse(r) : fallback;
   } catch (e) {
-    console.warn("[JobSwipe] localStorage illisible :", e.name);
+    console.warn("[JobSwipe] localStorage unreadable:", e.name);
     return fallback;
   }
 }
+
+// ─────────────── API base ───────────────
+// Docker/nginx proxies /api/ to the backend container (same origin), so a
+// relative path works there. Opening index.html directly (file://) has no
+// server to proxy through, so fall back to the local FastAPI dev server.
+const API_BASE = location.protocol === "file:" ? "http://localhost:8000" : "";
 
 // ─────────────── App ───────────────
 
@@ -169,13 +175,13 @@ const App = {
         education_text: "",
       };
       try {
-        await fetch("http://localhost:8000/api/profile", {
+        await fetch(`${API_BASE}/api/profile`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify(profil),
         });
       } catch (e) {
-        console.error("Erreur sync profil:", e);
+        console.error("Profile sync error:", e);
       }
     }
 
@@ -188,7 +194,7 @@ const App = {
       scrapeStatus.value  = "Launching scrape...";
 
       try {
-        const res = await fetch("http://localhost:8000/api/scrape", {
+        const res = await fetch(`${API_BASE}/api/scrape`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({
@@ -293,7 +299,7 @@ const App = {
 
       if (action === "like" || action === "super") {
         try {
-          await fetch("http://localhost:8000/api/likes", {
+          await fetch(`${API_BASE}/api/likes`, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify({ jobs: [job] }),
@@ -478,7 +484,7 @@ const App = {
       await this.$nextTick();
       if (this.chatScroller) this.chatScroller.scrollTop = this.chatScroller.scrollHeight;
       try {
-        const res = await fetch("http://localhost:8000/api/chat", {
+        const res = await fetch(`${API_BASE}/api/chat`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ message: text }),

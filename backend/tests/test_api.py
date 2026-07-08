@@ -14,6 +14,12 @@ def test_hello():
     assert res.json() == {"message": "Hello from FastAPI!"}
 
 
+def test_health():
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json() == {"ok": True}
+
+
 def test_profile_roundtrip(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)  # never touch the real profil.json
     payload = {

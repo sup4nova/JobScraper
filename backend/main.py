@@ -6,6 +6,7 @@ import json
 import os
 import asyncio
 import sys
+import threading
 from multiprocessing import Pool
 from multiprocessing import freeze_support
 freeze_support()  # required on Windows to avoid a RuntimeError when spawning processes
@@ -33,15 +34,19 @@ app.mount("/cv", StaticFiles(directory=str(CV_OUTPUT)), name="cv")
 # backend/chat/ is local-only (not committed - see README), so it's imported lazily
 # on first use rather than at module load, same pattern as cv.generator below.
 # Single session shared across requests — holds scraped jobs, last letter, chat history.
-# Not thread-safe; swap for a per-cookie dict to support multiple concurrent users.
+# This is intentionally single-user (personal-use tool, not a multi-tenant product):
+# swap for a per-cookie dict if you need to support multiple concurrent users.
 _session = None
+_session_lock = threading.Lock()
 
 
 def _get_session():
     global _session
     if _session is None:
-        from chat.agent import Session
-        _session = Session()
+        with _session_lock:
+            if _session is None:  # re-check: another request may have won the race
+                from chat.agent import Session
+                _session = Session()
     return _session
 
 
@@ -116,9 +121,16 @@ class LikeRequest(BaseModel):
     jobs: list[dict]
 
 
+# Default covers the Docker frontend (8001) and "null" for index.html opened
+# directly as a local file (Origin: null). The Docker frontend also proxies
+# /api/ through nginx (same-origin), so CORS mainly matters for that file:// case.
+# Override with a comma-separated list in CORS_ORIGINS for other setups.
+_default_origins = "http://localhost:8001,null"
+_cors_origins = os.getenv("CORS_ORIGINS", _default_origins).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -127,6 +139,12 @@ app.add_middleware(
 @app.get("/api/hello")
 def hello():
     return {"message": "Hello from FastAPI!"}
+
+
+@app.get("/health")
+def health():
+    """Liveness probe for docker-compose / orchestrators."""
+    return {"ok": True}
 
 
 class ProfileSaveRequest(BaseModel):
@@ -185,7 +203,13 @@ class ScrapeRequest(BaseModel):
 
 @app.post("/api/generate-cvs")
 async def generate_cvs(req: LikeRequest):
-    from cv.generator import generate_cv
+    try:
+        from cv.generator import generate_cv
+    except ModuleNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="CV generation is unavailable: backend/cv/ is a local-only prototype, not in this repo.",
+        )
 
     if not LIKED_FILE.exists():
         raise HTTPException(status_code=404, detail="No liked jobs found")
@@ -334,7 +358,11 @@ def select_jobs(offres: list[dict]) -> list[dict]:
 # ── CV generation ─────────────────────────────────────────────────────────────
 
 def generate_cvs_cli(offres: list[dict]):
-    from cv.generator import generate_cv
+    try:
+        from cv.generator import generate_cv
+    except ModuleNotFoundError:
+        print("\n⚠️  CV generation is unavailable: backend/cv/ is a local-only prototype, not in this repo.\n")
+        return
 
     print("─" * 55)
     print("Generating CVs")

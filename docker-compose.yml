@@ -5,10 +5,25 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+    healthcheck:
+      # 127.0.0.1, not localhost: Alpine/musl resolves "localhost" to ::1
+      # first, and these containers only listen on IPv4.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   frontend:
     build: ./frontend
     ports:
-      - "8001:80"
+      - "8001:8080"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s

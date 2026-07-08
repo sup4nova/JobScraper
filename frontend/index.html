@@ -16,7 +16,7 @@
 
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Vue 3 CDN — integrity garantit que le fichier n'a pas été altéré en transit (SRI) -->
+  <!-- Vue 3 CDN — the integrity attribute guarantees the file wasn't tampered with in transit (SRI) -->
   <script
     src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"
     integrity="sha384-bkD9qcJiDlQRpeIQtZSHgyQEMvRBzmOI9lw2SZHkLOrliAdnLtxNIucoEAVG9QVA"
@@ -162,13 +162,13 @@
             <path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>
           </svg>
         </button>
-        <button class="tab-btn" @click="editProfile()" title="Profil">
+        <button class="tab-btn" @click="editProfile()" title="Profile">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="8" r="4"/>
             <path d="M3 21c1.5-4 5-6 9-6s7.5 2 9 6"/>
           </svg>
         </button>
-        <button class="tab-btn" :class="{'is-active': chatOpen}" @click="chatOpen = !chatOpen" title="Chat IA">
+        <button class="tab-btn" :class="{'is-active': chatOpen}" @click="chatOpen = !chatOpen" title="AI Chat">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
@@ -409,7 +409,7 @@
                 <template v-if="i === 0">
                   <div class="stamp left" :style="{ opacity: stampOpacity('left') }">NOPE</div>
                   <div class="stamp right" :style="{ opacity: stampOpacity('right') }">LIKE</div>
-                  <div class="stamp up" :style="{ opacity: stampOpacity('up') }">⚡ POSTULE</div>
+                  <div class="stamp up" :style="{ opacity: stampOpacity('up') }">⚡ APPLY</div>
                 </template>
 
                 <div class="card-header">
@@ -449,7 +449,7 @@
                 <path d="M6 6l12 12M18 6L6 18"/>
               </svg>
             </button>
-            <button class="action super" @click="actionButton('super')" title="Postule">
+            <button class="action super" @click="actionButton('super')" title="Apply">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2L14.5 8.5 21 9.3l-5 4.4 1.4 6.3L12 16.8 6.6 20l1.4-6.3-5-4.4L9.5 8.5 12 2z"/>
               </svg>
@@ -466,44 +466,44 @@
         <!-- ╔══ STATS ══╗ -->
         <section v-else-if="scene === 'stats'" class="scene stats-scene" key="stats" data-screen-label="05 Stats">
 
-          <h2>Tes <em>matchs</em>.</h2>
+          <h2>Your <em>matches</em>.</h2>
 
           <div class="stat-grid">
             <div class="stat-card coral">
               <div class="stat-num">{{ liked.length }}</div>
-              <div class="stat-label">Sauvegardés</div>
+              <div class="stat-label">Saved</div>
             </div>
             <div class="stat-card butter">
               <div class="stat-num">{{ superLiked.length }}</div>
-              <div class="stat-label">Postulés ⚡</div>
+              <div class="stat-label">Applied ⚡</div>
             </div>
             <div class="stat-card peri">
               <div class="stat-num">{{ passed.length }}</div>
-              <div class="stat-label">Passés</div>
+              <div class="stat-label">Passed</div>
             </div>
             <div class="stat-card mint">
               <div class="stat-num">{{ matchPct }}%</div>
-              <div class="stat-label">Taux de match</div>
+              <div class="stat-label">Match rate</div>
             </div>
           </div>
 
-          <!-- filtres résumé -->
+          <!-- filters summary -->
           <h3 class="section-title">
-            Tes filtres
-            <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" @click="editProfile()">Modifier</button>
+            Your filters
+            <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" @click="editProfile()">Edit</button>
           </h3>
           <div class="filter-summary">
-            <span class="filter-summary-label">Recherche</span>
+            <span class="filter-summary-label">Search</span>
             <span class="meta-tag" v-if="profile.poste">{{ profile.poste }}</span>
             <span class="meta-tag" v-if="profile.ville">📍 {{ profile.ville }} ({{ profile.rayon }}km)</span>
             <span class="meta-tag" v-for="r in profile.remote" :key="r">{{ r }}</span>
             <span class="meta-tag" v-for="c in profile.contrats" :key="c">{{ c }}</span>
             <span class="meta-tag">{{ profile.salaryMin }}–{{ profile.salaryMax }} k€</span>
-            <span class="meta-tag">{{ profile.experience }} ans</span>
+            <span class="meta-tag">{{ profile.experience }} yrs</span>
           </div>
 
           <!-- source breakdown -->
-          <h3 class="section-title">Sources les plus likées</h3>
+          <h3 class="section-title">Most liked sources</h3>
           <div class="bar-chart">
             <div class="bar-row" v-for="s in sourceBreakdown" :key="s.id">
               <div class="bar-row-head">
@@ -515,12 +515,12 @@
               </div>
             </div>
             <div v-if="liked.length === 0" style="text-align:center; padding:8px; font-size:13px; color:var(--ink-soft);">
-              Pas encore de like — file swiper !
+              No likes yet — go swipe!
             </div>
           </div>
 
-          <!-- top matchs -->
-          <h3 class="section-title">Top correspondances</h3>
+          <!-- top matches -->
+          <h3 class="section-title">Top matches</h3>
           <div class="match-list">
             <div v-for="m in topMatches" :key="m.job.url" class="match-item">
               <div class="match-item-head">
@@ -535,20 +535,20 @@
               <div class="match-item-tags">
                 <span class="match-item-tag" v-if="m.job.salary">💰 {{ m.job.salary }}</span>
                 <span class="match-item-tag">{{ sourceLabels[m.job.source] }}</span>
-                <span class="match-item-tag" v-if="m.action === 'super'">⚡ Postulé</span>
+                <span class="match-item-tag" v-if="m.action === 'super'">⚡ Applied</span>
               </div>
             </div>
             <div v-if="topMatches.length === 0" style="text-align:center; padding:16px; font-size:13px; color:var(--ink-soft);">
-              Aucun match pour l'instant.
+              No matches yet.
             </div>
           </div>
 
           <div style="margin-top: 8px; display:flex; gap:8px;">
-            <button class="btn" @click="backToSwipe()" style="flex:1;">Continuer à swiper</button>
+            <button class="btn" @click="backToSwipe()" style="flex:1;">Keep swiping</button>
             <button class="btn btn-primary" @click="restartScrape()" style="flex:1;">↻ Rescrape</button>
           </div>
           <div style="margin-top: 8px;">
-            <button class="btn btn-ghost" style="width:100%;font-size:12px;opacity:0.6;" @click="clearHistory()">Tout réinitialiser (effacer l'historique)</button>
+            <button class="btn btn-ghost" style="width:100%;font-size:12px;opacity:0.6;" @click="clearHistory()">Reset everything (clear history)</button>
           </div>
 
         </section>
@@ -580,7 +580,7 @@
             <div style="display:flex;align-items:center;gap:8px;">
               <div class="chat-dot"></div>
               <span class="chat-head-title">JobBot</span>
-              <span class="chat-head-sub">assistant IA · local</span>
+              <span class="chat-head-sub">AI assistant · local</span>
             </div>
             <button class="chat-close" @click="chatOpen = false">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -601,7 +601,7 @@
               v-model="chatInput"
               @keydown.enter.exact.prevent="sendChat"
               :disabled="chatLoading"
-              placeholder="Ex : génère une lettre pour l'offre 1…"
+              placeholder="e.g.: generate a letter for job 1…"
               rows="1"
               class="chat-area"
             ></textarea>
@@ -631,7 +631,7 @@
       </div>
 
       <div class="tweak-row">
-        <label>Couleur d'accent</label>
+        <label>Accent color</label>
         <div class="swatches">
           <button v-for="t in [{k:'coral',c:'#FF6E5A'},{k:'peri',c:'#7A86F5'},{k:'mint',c:'#52B57A'},{k:'butter',c:'#F2B82E'}]"
                   :key="t.k"

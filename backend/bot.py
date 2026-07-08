@@ -8,7 +8,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, quote_plus
+from urllib.parse import urlparse, parse_qs
 
 load_dotenv()
 
@@ -21,10 +21,9 @@ SEEN_JOBS_FILE = "seen_jobs.json"
 
 # ── Source styles ─────────────────────────────────────────────────────────────
 SOURCE_STYLE = {
-    "indeed":    {"label": "Indeed",                "color": 0x2557A7},
-    "linkedin":  {"label": "LinkedIn",              "color": 0x0A66C2},
-    "wellfound": {"label": "Wellfound",             "color": 0x00A2E8},
-    "wttj":      {"label": "Welcome to the Jungle", "color": 0xFFCD00},
+    "indeed":    {"label": "Indeed",    "color": 0x2557A7},
+    "linkedin":  {"label": "LinkedIn",  "color": 0x0A66C2},
+    "wellfound": {"label": "Wellfound", "color": 0x00A2E8},
 }
 DEFAULT_COLOR = 0x5865F2  # Discord blurple
 
@@ -92,13 +91,13 @@ def _clean_description(desc: str) -> str:
     if not desc:
         return "_No description provided._"
     # Normalize bullets to •, strip noise
-    lines = [l.strip() for l in desc.splitlines() if l.strip()]
+    lines = [line.strip() for line in desc.splitlines() if line.strip()]
     out = []
-    for l in lines:
-        if l.startswith(("-", "*", "•")):
-            out.append("• " + l.lstrip("-*• ").strip())
+    for line in lines:
+        if line.startswith(("-", "*", "•")):
+            out.append("• " + line.lstrip("-*• ").strip())
         else:
-            out.append(l)
+            out.append(line)
     return _truncate("\n".join(out), 600)
 
 
