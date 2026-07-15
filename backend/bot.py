@@ -343,7 +343,7 @@ async def run_subscriber_cycle():
     for (title, location), uids in groups.items():
         try:
             jobs = await loop.run_in_executor(
-                None, lambda t=title, l=location: _run_scrape_in_process(t, l, 5)
+                None, lambda t=title, loc=location: _run_scrape_in_process(t, loc, 5)
             )
         except Exception as e:
             print(f"run_subscriber_cycle scrape error for '{title}' / '{location}': {type(e).__name__}: {e}")
