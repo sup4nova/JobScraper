@@ -1,5 +1,5 @@
 """
-Indeed scraper - undetected-chromedriver + webdriver-manager
+Indeed scraper - undetected-chromedriver
 """
 import time
 import random
@@ -8,8 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 
 import undetected_chromedriver as uc
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
+from scrapers._chrome import chrome_binary_location, chrome_version_main
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -51,12 +50,14 @@ class IndeedScraper:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
-        options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
         options.add_argument(f"user-agent={UserAgent().random}")
+        binary = chrome_binary_location()
+        if binary:
+            options.binary_location = binary
 
         driver = uc.Chrome(
-            service=Service(ChromeDriverManager().install()),
             options=options,
+            version_main=chrome_version_main(),
         )
         return driver
 
@@ -105,6 +106,7 @@ class IndeedScraper:
                     )
                 )
             except TimeoutException:
+                print(f"    ⚠️  job list never appeared — url={driver.current_url!r} title={driver.title!r}")
                 break
 
             container    = driver.find_element(By.CSS_SELECTOR, "#mosaic-provider-jobcards")

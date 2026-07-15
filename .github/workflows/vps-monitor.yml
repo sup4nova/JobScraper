@@ -1,0 +1,46 @@
+name: VPS Bot Monitor
+
+on:
+  schedule:
+    # 08:30 and 14:30 UTC, Mon-Fri — ~30min after the bot's own scheduled
+    # scrapes (08:00/14:00 server time). Adjust if the VPS isn't on UTC.
+    - cron: '30 8,14 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH health check
+        id: check
+        env:
+          SSH_KEY: ${{ secrets.VPS_MONITOR_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_MONITOR_HOST }}
+          VPS_USER: ${{ secrets.VPS_MONITOR_USER }}
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_ed25519
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" > result.txt || true
+          cat result.txt
+          # Mirrors check_health.sh's own filtering: a global failure
+          # (ALERT:/Traceback/CONTAINER_DOWN) or a single source detected as
+          # blocked (Cloudflare, Indeed's login-wall/selector-drift messages,
+          # or a caught "X error:" exception per source).
+          if grep -qE "ALERT:|Traceback|CONTAINER_DOWN|Cloudflare|job list never appeared|selectors may be outdated|(Indeed|LinkedIn|Wellfound|Remote OK) error:" result.txt; then
+            echo "problem=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify Discord
+        if: steps.check.outputs.problem == 'true'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
+        run: |
+          curl -sf -H "Content-Type: application/json" -X POST \
+            -d "{\"content\": \"⚠️ **JobScrapper bot** — problème détecté sur le VPS (voir l'exécution GitHub Actions pour le détail).\"}" \
+            "$DISCORD_WEBHOOK"
+
+      - name: Fail if problem detected
+        if: steps.check.outputs.problem == 'true'
+        run: exit 1

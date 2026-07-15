@@ -7,7 +7,6 @@ import os
 import asyncio
 import sys
 import threading
-from multiprocessing import Pool
 from multiprocessing import freeze_support
 freeze_support()  # required on Windows to avoid a RuntimeError when spawning processes
 
@@ -18,9 +17,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pathlib import Path
 from pydantic import BaseModel
 from scrapers.indeed import IndeedScraper
-from scrapers.remote_ok import RemoteOKScraper, tags_for
+from scrapers.remote_ok import RemoteOKScraper
 from scrapers.linkedin import LinkedInScraper
 from scrapers.wellfound import WellfoundScraper
+from scraping import _run_scrape_in_process, _print_recap
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -48,48 +48,6 @@ def _get_session():
                 from chat.agent import Session
                 _session = Session()
     return _session
-
-
-def _run_scrape_in_process(poste: str, ville: str, limite: int) -> list[dict]:
-    """Run all scrapers and return the merged results. Chrome-based ones run in a subprocess."""
-    indeed_jobs = []
-    linkedin_jobs = []
-    wellfound_jobs = []
-    try:
-        linkedin_jobs = LinkedInScraper(query=poste, city=ville, limit=limite).scrape()
-        print(f">>> {len(linkedin_jobs)} LinkedIn jobs")
-    except Exception as e:
-        print(f"LinkedIn error: {type(e).__name__}: {e}")
-    try:
-        with Pool(1) as p:
-            wellfound_jobs = p.apply(WellfoundScraper(query=poste, city=ville, limit=limite).scrape)
-        print(f">>> {len(wellfound_jobs)} Wellfound jobs")
-    except Exception as e:
-        print(f"Wellfound error: {type(e).__name__}: {e}")
-    try:
-        with Pool(1) as p:
-            indeed_jobs = p.apply(IndeedScraper(query=poste, city=ville, limit=limite).scrape)
-        print(f">>> {len(indeed_jobs)} Indeed jobs")
-    except Exception as e:
-        print(f"Indeed error: {type(e).__name__}: {e}")
-
-    remoteok_jobs = []
-    try:
-        remoteok_jobs = RemoteOKScraper(
-            query=poste, city=ville, limit=limite, tags=tags_for(poste)
-        ).scrape()
-        print(f">>> {len(remoteok_jobs)} Remote OK jobs")
-    except Exception as e:
-        print(f"Remote OK error: {type(e).__name__}: {e}")
-
-    _print_recap({
-        "Indeed":    indeed_jobs,
-        "LinkedIn":  linkedin_jobs,
-        "Remote OK": remoteok_jobs,
-        "Wellfound": wellfound_jobs,
-    })
-
-    return indeed_jobs + linkedin_jobs + remoteok_jobs + wellfound_jobs
 
 
 class ChatRequest(BaseModel):
@@ -413,22 +371,6 @@ def collect_user_profile() -> dict:
         json.dump(profil, f, ensure_ascii=False, indent=2)
     print(f"\nProfile saved to {PROFIL_FILE}\n")
     return profil
-
-
-def _print_recap(resultats: dict[str, list]):
-    """Print a scraping summary per source."""
-    print("\n" + "═" * 50)
-    print("  SCRAPING SUMMARY")
-    print("═" * 50)
-    total = 0
-    for source, jobs in resultats.items():
-        n = len(jobs)
-        total += n
-        status = "✅" if n > 0 else "⚠️ "
-        print(f"  {status} {source:<12} : {n:>3} job(s)")
-    print("─" * 50)
-    print(f"  📦 TOTAL       : {total:>3} job(s)")
-    print("═" * 50 + "\n")
 
 
 if __name__ == "__main__":

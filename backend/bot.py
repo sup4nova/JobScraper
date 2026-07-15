@@ -1,14 +1,21 @@
 import os
 import re
+import sys
 import json
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, time, timezone
 import hashlib
-import aiohttp
 import discord
-from discord.ext import commands
+from discord import app_commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
-from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+
+# Must run before the `scraping` import below, so this module is importable
+# regardless of the current working directory.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from scraping import _run_scrape_in_process
 
 load_dotenv()
 
@@ -17,7 +24,11 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-SEEN_JOBS_FILE = "seen_jobs.json"
+SEEN_JOBS_FILE = os.getenv("SEEN_JOBS_FILE", "seen_jobs.json")
+SUBSCRIBERS_FILE = os.getenv("SUBSCRIBERS_FILE", "subscribers.json")
+
+# Weekday scraping schedule (Mon-Fri only, checked inside the task below)
+SCRAPE_TIMES = [time(hour=8, minute=0), time(hour=14, minute=0)]
 
 # ── Source styles ─────────────────────────────────────────────────────────────
 SOURCE_STYLE = {
@@ -32,7 +43,6 @@ EMO_SALARY   = "💰"
 EMO_MODE     = "📍"
 EMO_CONTRACT = "📄"
 EMO_APPLY    = "⚡"
-EMO_RESUME   = "📝"
 EMO_LINK     = "🔗"
 EMO_HIDE     = "🙈"
 
@@ -65,6 +75,19 @@ def save_seen_jobs(seen: set, profile: dict):
             "profile": {"title": profile.get("title"), "location": profile.get("location")},
             "seen": list(seen),
         }, f, indent=2)
+
+
+# ── Per-user subscriptions (personal /jobalert config) ────────────────────────
+def load_subscribers() -> dict:
+    if not os.path.exists(SUBSCRIBERS_FILE):
+        return {}
+    with open(SUBSCRIBERS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_subscribers(subs: dict):
+    with open(SUBSCRIBERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(subs, f, ensure_ascii=False, indent=2)
 
 
 def extract_job_key(url: str) -> str | None:
@@ -103,6 +126,15 @@ def _clean_description(desc: str) -> str:
 
 def _is_http(url: str) -> bool:
     return isinstance(url, str) and url.startswith(("http://", "https://"))
+
+
+def _clean_job_url(job: dict):
+    """Rebuild a clean short Indeed URL from the `jk` param, in place."""
+    url = job.get("url")
+    if url:
+        jk = parse_qs(urlparse(url).query).get("jk", [None])[0]
+        if jk:
+            job["url"] = f"https://fr.indeed.com/viewjob?jk={jk}"
 
 
 def build_job_embed(job: dict) -> discord.Embed:
@@ -162,7 +194,7 @@ def build_job_embed(job: dict) -> discord.Embed:
 class JobCardView(discord.ui.View):
     """Button row under each job card. timeout=None so it persists after restarts."""
 
-    def __init__(self, job: dict, resume: str | None = None):
+    def __init__(self, job: dict):
         super().__init__(timeout=None)
 
         def _valid_btn_url(u):
@@ -191,97 +223,44 @@ class JobCardView(discord.ui.View):
                 url=url,
             ))
 
-        if resume and _valid_btn_url(resume):
-            self.add_item(discord.ui.Button(
-                label="View CV",
-                emoji=EMO_RESUME,
-                style=discord.ButtonStyle.link,
-                url=resume,
-            ))
-
     # 🙈 Hide button
     @discord.ui.button(label="Hide", emoji=EMO_HIDE, style=discord.ButtonStyle.secondary)
     async def hide(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.message.delete()
 
 
-# ── CV generation via API ─────────────────────────────────────────────────────
-async def get_cv_url(job: dict) -> str | None:
-    try:
-        timeout = aiohttp.ClientTimeout(total=60)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(
-                "http://localhost:8000/api/generate-cvs",
-                json={"jobs": [job]},
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                data = await resp.json()
-                result = (data.get("results") or [{}])[0]
-                if not result.get("ok") or not result.get("path"):
-                    return None
-                filename = Path(result["path"]).name
-                return f"http://localhost:8000/cv/{filename}"
-    except Exception as e:
-        print(f"CV generation error: {e}")
-        return None
-
-
 # ── Profile + job fetching ────────────────────────────────────────────────────
-async def get_profile() -> dict:
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get("http://localhost:8000/api/profile") as resp:
-                if resp.status != 200:
-                    return {}
-                return await resp.json()
-    except Exception as e:
-        print(f"Could not fetch profile: {e}")
-        return {}
+def get_profile() -> dict:
+    """Job title / location config, set via env vars (no FastAPI backend on the VPS)."""
+    return {
+        "title": os.getenv("JOB_TITLE", "python developer"),
+        "location": os.getenv("JOB_LOCATION", "Paris"),
+    }
 
 
-async def get_jobs() -> list[dict]:
-    profile = await get_profile()
+async def get_jobs(profile: dict) -> list[dict]:
     query = profile.get("title", "python developer")
     city = profile.get("location", "Paris")
     print(f'Searching: "{query}" in "{city}"')
 
+    loop = asyncio.get_event_loop()
     try:
-        timeout = aiohttp.ClientTimeout(total=120)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(
-                "http://localhost:8000/api/scrape",
-                json={"poste": query, "ville": city, "limite": 5},
-            ) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    print(f"Server error HTTP {resp.status}: {text[:300]}")
-                    return []
-                data = await resp.json()
-                return data.get("jobs", [])
-    except aiohttp.ClientConnectorError:
-        print("Cannot reach localhost:8000 — is FastAPI running?")
-        return []
+        return await loop.run_in_executor(
+            None, lambda: _run_scrape_in_process(query, city, 5)
+        )
     except Exception as e:
         print(f"get_jobs error: {type(e).__name__}: {e}")
         return []
 
 
-# ── on_ready: send a card per job ─────────────────────────────────────────────
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user.name}")
-    channel = bot.get_channel(int(os.getenv("DISCORD_CHANNEL_ID")))
-    if not channel:
-        print("Channel not found")
-        return
-
-    profile = await get_profile()
+# ── Scrape cycle: fetch jobs, send a card per new one ─────────────────────────
+async def run_scrape_cycle(channel):
+    profile = get_profile()
     seen = load_seen_jobs(profile)
     print(f"Already seen: {len(seen)} jobs")
 
     print("Starting scraper...")
-    jobs = await get_jobs()
+    jobs = await get_jobs(profile)
     print(f"Jobs found: {len(jobs)}")
 
     if not jobs:
@@ -293,12 +272,7 @@ async def on_ready():
         if not job.get("title"):
             continue
 
-        # Rebuild a clean short URL from the jk param
-        url = job.get("url")
-        if url:
-            jk = parse_qs(urlparse(url).query).get("jk", [None])[0]
-            if jk:
-                job["url"] = f"https://fr.indeed.com/viewjob?jk={jk}"
+        _clean_job_url(job)
 
         job_id = extract_job_key(job.get("url", ""))
         if not job_id:
@@ -309,13 +283,154 @@ async def on_ready():
             continue
 
         print(f'Sending: {job["title"]} @ {job["company"]}')
-        resume = await get_cv_url(job)
-        await channel.send(embed=build_job_embed(job), view=JobCardView(job, resume=resume))
+        await channel.send(embed=build_job_embed(job), view=JobCardView(job))
         seen.add(job_id)
         new_count += 1
 
     save_seen_jobs(seen, profile)
     print(f"Done — {new_count} new job(s) sent")
+
+
+# ── Personal alerts: slash commands ───────────────────────────────────────────
+@bot.tree.command(name="jobalert", description="Reçois tes propres offres d'emploi en MP")
+@app_commands.describe(title="Poste recherché", location="Ville")
+async def jobalert(interaction: discord.Interaction, title: str, location: str):
+    subs = load_subscribers()
+    uid = str(interaction.user.id)
+    existing = subs.get(uid, {})
+    subs[uid] = {"title": title, "location": location, "seen": existing.get("seen", [])}
+    save_subscribers(subs)
+    await interaction.response.send_message(
+        f"C'est noté : tu recevras en MP les offres pour **{title}** à **{location}**.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(name="jobalert-stop", description="Arrête tes alertes personnelles")
+async def jobalert_stop(interaction: discord.Interaction):
+    subs = load_subscribers()
+    uid = str(interaction.user.id)
+    if subs.pop(uid, None) is not None:
+        save_subscribers(subs)
+        await interaction.response.send_message("Alertes désactivées.", ephemeral=True)
+    else:
+        await interaction.response.send_message("Tu n'avais pas d'alerte active.", ephemeral=True)
+
+
+@bot.tree.command(name="jobalert-status", description="Affiche ta configuration actuelle")
+async def jobalert_status(interaction: discord.Interaction):
+    sub = load_subscribers().get(str(interaction.user.id))
+    if not sub:
+        await interaction.response.send_message("Aucune alerte configurée. Utilise `/jobalert`.", ephemeral=True)
+    else:
+        await interaction.response.send_message(
+            f"Poste : **{sub['title']}** — Ville : **{sub['location']}**", ephemeral=True,
+        )
+
+
+async def run_subscriber_cycle():
+    """Scrape once per distinct (title, location) among subscribers, DM new jobs to each."""
+    subs = load_subscribers()
+    if not subs:
+        return
+
+    groups: dict[tuple[str, str], list[str]] = {}
+    for uid, sub in subs.items():
+        key = (sub["title"].strip().lower(), sub["location"].strip().lower())
+        groups.setdefault(key, []).append(uid)
+
+    loop = asyncio.get_event_loop()
+    for (title, location), uids in groups.items():
+        try:
+            jobs = await loop.run_in_executor(
+                None, lambda t=title, l=location: _run_scrape_in_process(t, l, 5)
+            )
+        except Exception as e:
+            print(f"run_subscriber_cycle scrape error for '{title}' / '{location}': {type(e).__name__}: {e}")
+            continue
+
+        for job in jobs:
+            _clean_job_url(job)
+
+        for uid in uids:
+            sub = subs[uid]
+            seen = set(sub.get("seen", []))
+            try:
+                user = await bot.fetch_user(int(uid))
+            except discord.NotFound:
+                print(f"Subscriber {uid} not found — skipping")
+                continue
+
+            new_count = 0
+            for job in jobs:
+                job_id = extract_job_key(job.get("url", ""))
+                if not job.get("title") or not job_id or job_id in seen:
+                    continue
+                try:
+                    await user.send(embed=build_job_embed(job), view=JobCardView(job))
+                except discord.Forbidden:
+                    print(f"Cannot DM user {uid} (DMs closed) — skipping")
+                    break
+                seen.add(job_id)
+                new_count += 1
+
+            sub["seen"] = list(seen)
+            print(f"Sent {new_count} job(s) to subscriber {uid}")
+
+    save_subscribers(subs)
+
+
+def _get_channel():
+    channel = bot.get_channel(int(os.getenv("DISCORD_CHANNEL_ID")))
+    if not channel:
+        print("Channel not found")
+    return channel
+
+
+# ── Manual trigger (testing/admin) ────────────────────────────────────────────
+@bot.tree.command(name="scrape-now", description="Force un scrape immédiat (admin only)")
+async def scrape_now(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Réservé aux admins du serveur.", ephemeral=True)
+        return
+
+    # Scraping (Selenium + Chrome) takes well over Discord's 3s response window,
+    # so acknowledge immediately and follow up once both cycles are done.
+    await interaction.response.defer(ephemeral=True)
+    channel = _get_channel()
+    if channel:
+        await run_scrape_cycle(channel)
+    await run_subscriber_cycle()
+    await interaction.followup.send("Scrape terminé — voir les logs pour le détail.", ephemeral=True)
+
+
+# ── Scheduled scraping: weekdays only, twice a day ────────────────────────────
+@tasks.loop(time=SCRAPE_TIMES)
+async def scheduled_scrape():
+    if datetime.now().weekday() >= 5:  # Saturday=5, Sunday=6
+        print("Weekend — skip scheduled scrape")
+        return
+    channel = _get_channel()
+    if channel:
+        await run_scrape_cycle(channel)
+    await run_subscriber_cycle()
+
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user.name}")
+    channel = _get_channel()
+    if not channel:
+        return
+
+    if channel.guild:
+        await bot.tree.sync(guild=channel.guild)
+
+    await run_scrape_cycle(channel)
+    await run_subscriber_cycle()
+
+    if not scheduled_scrape.is_running():
+        scheduled_scrape.start()
 
 
 if __name__ == "__main__":

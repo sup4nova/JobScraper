@@ -1,3 +1,5 @@
+# Discord bot image — standalone, no FastAPI. Keep the Chrome/Xvfb setup below
+# in sync with ../Dockerfile if CHROME_VERSION is bumped there.
 FROM python:3.13-slim
 
 # Chrome deps for Selenium/undetected-chromedriver, + Xvfb so Chrome can run
@@ -59,7 +61,8 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-EXPOSE 8000
+# No EXPOSE: the bot only makes outbound connections (Discord gateway + scraping
+# targets), it doesn't listen on a port.
 
 # tini as PID 1: xvfb-run relies on receiving a SIGUSR1 from Xvfb once it's
 # ready, and that signal handling breaks when its shell script runs directly
@@ -67,4 +70,4 @@ EXPOSE 8000
 # xvfb-run then gives Chrome a virtual display (-a picks a free display
 # number) so Indeed/Wellfound can launch it headed, same as on a real desktop.
 ENTRYPOINT ["tini", "--"]
-CMD ["xvfb-run", "-a", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["xvfb-run", "-a", "python", "bot.py"]
