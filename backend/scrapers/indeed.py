@@ -8,12 +8,16 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 
 import undetected_chromedriver as uc
-from scrapers._chrome import chrome_binary_location, chrome_version_main
+from scrapers._chrome import (
+    chrome_binary_location,
+    chrome_version_main,
+    chrome_profile_dir,
+    looks_like_cloudflare_challenge,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from fake_useragent import UserAgent
 
 
 _SALARY_KEYWORDS = ["€", "k€", "eur", "salaire", "rémunération", "par an", "par mois"]
@@ -50,10 +54,18 @@ class IndeedScraper:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument(f"user-agent={UserAgent().random}")
+        # No manual user-agent override: uc already keeps the UA consistent
+        # with the actual patched Chrome binary. A random UA here would say
+        # e.g. "Chrome 131" while the JS engine/TLS fingerprint says "121" —
+        # exactly the kind of mismatch Cloudflare's bot check looks for.
         binary = chrome_binary_location()
         if binary:
             options.binary_location = binary
+
+        # Persistent profile: keeps cookies (incl. any Cloudflare clearance)
+        # across scrape cycles instead of starting from scratch every run.
+        profile_dir = chrome_profile_dir("indeed")
+        options.add_argument(f"--user-data-dir={profile_dir}")
 
         driver = uc.Chrome(
             options=options,
@@ -80,23 +92,50 @@ class IndeedScraper:
     # ── Search + pagination ───────────────────────────────────────────────────
 
     def _search(self, driver) -> list[dict]:
-        query_enc = quote_plus(self.query)
-        city_enc  = quote_plus(self.city)
-        driver.get(f"{self.BASE}/jobs?q={query_enc}&l={city_enc}")
+        # Warm-up: land on the homepage first like a real visitor, rather
+        # than jumping straight to a deep search URL.
+        print("Indeed: warm-up visit to homepage")
+        driver.get(self.BASE)
         time.sleep(random.uniform(2, 4))
 
-        # dismiss cookie banner
-        try:
-            btn = WebDriverWait(driver, 4).until(
-                EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
-            )
-            btn.click()
-            time.sleep(1)
-        except TimeoutException:
-            pass
+        query_enc = quote_plus(self.query)
+        city_enc  = quote_plus(self.city)
+        search_url = f"{self.BASE}/jobs?q={query_enc}&l={city_enc}"
 
         jobs      = []
         seen_urls = set()
+
+        for attempt in range(1, 3):
+            print(f"Indeed: {search_url} (attempt {attempt}/2)")
+            driver.get(search_url)
+            time.sleep(random.uniform(2, 4))
+
+            # dismiss cookie banner
+            try:
+                btn = WebDriverWait(driver, 4).until(
+                    EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
+                )
+                btn.click()
+                time.sleep(1)
+            except TimeoutException:
+                pass
+
+            try:
+                WebDriverWait(driver, 35).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "#mosaic-provider-jobcards")
+                    )
+                )
+                break  # job list showed up — fall through to pagination loop below
+            except TimeoutException:
+                if looks_like_cloudflare_challenge(driver.page_source):
+                    print(f"    ⛔ still on Cloudflare challenge after {attempt} attempt(s)")
+                    time.sleep(random.uniform(4, 8))
+                    continue
+                print(f"    ⚠️  job list never appeared — url={driver.current_url!r} title={driver.title!r}")
+                return jobs
+        else:
+            return jobs
 
         while len(jobs) < self.limit:
             try:

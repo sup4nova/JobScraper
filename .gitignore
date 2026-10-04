@@ -46,3 +46,12 @@ backend/subscribers.json
 backend/chat/
 backend/cv/
 chat.py
+
+.env*
+!.env.example
+backend/settings.json
+cv/
+db/
+data/
+backend/data/
+*_debug.png

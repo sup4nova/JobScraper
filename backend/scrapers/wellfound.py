@@ -5,17 +5,19 @@ import time
 import json
 import html
 import random
-import tempfile
-import os
 from urllib.parse import quote
 
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from scrapers._chrome import chrome_binary_location, chrome_version_main
+from scrapers._chrome import (
+    chrome_binary_location,
+    chrome_version_main,
+    chrome_profile_dir,
+    looks_like_cloudflare_challenge,
+)
 from selenium.common.exceptions import TimeoutException
-from fake_useragent import UserAgent
 
 BASE = "https://wellfound.com"
 
@@ -42,14 +44,19 @@ class WellfoundScraper:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument(f"user-agent={UserAgent().random}")
+        # No manual user-agent override: uc already keeps the UA consistent
+        # with the actual patched Chrome binary. A random UA here would say
+        # e.g. "Chrome 131" while the JS engine/TLS fingerprint says "121" —
+        # exactly the kind of mismatch Cloudflare's bot check looks for.
         options.add_argument("--disable-blink-features=AutomationControlled")
         binary = chrome_binary_location()
         if binary:
             options.binary_location = binary
 
-        # Temp profile outside OneDrive to avoid sync lock conflicts
-        profile_dir = os.path.join(tempfile.gettempdir(), "uc_wellfound")
+        # Persistent profile: keeps the `cf_clearance` cookie (and other
+        # session state) across scrape cycles so we don't re-trigger
+        # Cloudflare's JS challenge on every single run.
+        profile_dir = chrome_profile_dir("wellfound")
         options.add_argument(f"--user-data-dir={profile_dir}")
 
         return uc.Chrome(options=options, version_main=chrome_version_main())
@@ -64,24 +71,37 @@ class WellfoundScraper:
     def scrape(self) -> list[dict]:
         driver = self._make_driver()
         try:
+            # Warm-up: land on the homepage first like a real visitor, rather
+            # than jumping straight to a deep search URL — gives Cloudflare a
+            # normal-looking navigation history before the page that matters.
+            print("Wellfound: warm-up visit to homepage")
+            driver.get(BASE)
+            time.sleep(random.uniform(2, 4))
+
             url = self._build_url()
-            print(f"Wellfound: {url}")
-            driver.get(url)
-            time.sleep(random.uniform(3, 6))  # wait for Cloudflare challenge and JS to resolve
+            for attempt in range(1, 3):
+                print(f"Wellfound: {url} (attempt {attempt}/2)")
+                driver.get(url)
+                time.sleep(random.uniform(3, 6))  # let the Cloudflare/JS challenge resolve
 
-            try:
-                WebDriverWait(driver, 15).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "script#__NEXT_DATA__"))
-                )
-            except TimeoutException:
-                print("⛔ __NEXT_DATA__ not found — likely blocked by Cloudflare")
-                return []
+                try:
+                    WebDriverWait(driver, 35).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "script#__NEXT_DATA__"))
+                    )
+                    raw = driver.find_element(
+                        By.CSS_SELECTOR, "script#__NEXT_DATA__"
+                    ).get_attribute("textContent")
+                    return self._parse(raw)
+                except TimeoutException:
+                    if looks_like_cloudflare_challenge(driver.page_source):
+                        print(f"⛔ still on Cloudflare challenge after {attempt} attempt(s)")
+                    else:
+                        print("⚠️  __NEXT_DATA__ not found and no Cloudflare markers — "
+                              "page markup may have changed")
+                        break  # not a Cloudflare issue, retrying won't help
+                    time.sleep(random.uniform(4, 8))
 
-            raw = driver.find_element(
-                By.CSS_SELECTOR, "script#__NEXT_DATA__"
-            ).get_attribute("textContent")
-
-            return self._parse(raw)
+            return []
         finally:
             driver.quit()
 

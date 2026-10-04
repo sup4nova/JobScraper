@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Offres — JobScrapper{% endblock %}
+
+{% block content %}
+{% if scrape_status.running %}
+<div class="alert alert-info">
+  <div class="spinner"></div>
+  Scraping en cours… {{ scrape_status.message }}
+</div>
+{% endif %}
+
+<!-- TABS -->
+<div class="tabs">
+  <a href="/jobs" class="tab {% if not current_status %}active{% endif %}">
+    Toutes <span class="count">{{ counts.all }}</span>
+  </a>
+  <a href="/jobs?status=new" class="tab {% if current_status == 'new' %}active{% endif %}">
+    Nouvelles <span class="count">{{ counts.new }}</span>
+  </a>
+  <a href="/jobs?status=liked" class="tab {% if current_status == 'liked' %}active{% endif %}">
+    ❤ Sélectionnées <span class="count">{{ counts.liked }}</span>
+  </a>
+  <a href="/jobs?status=ignored" class="tab {% if current_status == 'ignored' %}active{% endif %}">
+    Ignorées <span class="count">{{ counts.ignored }}</span>
+  </a>
+  <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
+    <a href="/" class="btn btn-primary btn-sm">+ Nouveau scraping</a>
+  </div>
+</div>
+
+<!-- SEARCH / FILTER -->
+<form method="get" action="/jobs" class="search-bar">
+  <input type="hidden" name="status" value="{{ current_status or '' }}">
+  <input type="text" name="search" value="{{ current_search }}" placeholder="Rechercher par titre, entreprise, ville…">
+  <select name="source" style="min-width: 130px;">
+    <option value="">Toutes sources</option>
+    <option value="indeed" {% if current_source == 'indeed' %}selected{% endif %}>Indeed</option>
+    <option value="linkedin" {% if current_source == 'linkedin' %}selected{% endif %}>LinkedIn</option>
+    <option value="wttj" {% if current_source == 'wttj' %}selected{% endif %}>WTTJ</option>
+  </select>
+  <button type="submit" class="btn btn-ghost">Filtrer</button>
+</form>
+
+<!-- JOB LIST -->
+{% if not jobs %}
+  <div style="text-align: center; padding: 4rem; color: var(--muted);">
+    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+    <p>Aucune offre trouvée. <a href="/">Lance un scraping</a> pour commencer.</p>
+  </div>
+{% else %}
+<div class="jobs-grid">
+  {% for job in jobs %}
+  <div class="job-card {{ job.status }}">
+    <div class="job-main">
+      <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+        <span class="job-title">{{ job.title }}</span>
+        <span class="badge badge-{{ job.source }}">{{ job.source }}</span>
+        <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+      </div>
+      <div class="job-meta">
+        {% if job.company %}<span>🏢 {{ job.company }}</span>{% endif %}
+        {% if job.city %}<span>📍 {{ job.city }}</span>{% endif %}
+        {% if job.salary %}<span>💰 {{ job.salary }}</span>{% endif %}
+        {% if job.contract_type %}<span>📄 {{ job.contract_type }}</span>{% endif %}
+        {% if job.education %}<span>🎓 {{ job.education }}</span>{% endif %}
+      </div>
+      {% if job.description %}
+      <p style="font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+        {{ job.description[:200] }}…
+      </p>
+      {% endif %}
+    </div>
+
+    <div class="job-actions">
+      <a href="/jobs/{{ job.id }}" class="btn btn-ghost btn-sm">Voir</a>
+
+      {% if job.status != 'liked' %}
+      <form method="post" action="/jobs/{{ job.id }}/status">
+        <input type="hidden" name="status" value="liked">
+        <input type="hidden" name="redirect_to" value="{{ request.url }}">
+        <button type="submit" class="btn btn-success btn-sm" title="Sélectionner">❤</button>
+      </form>
+      {% endif %}
+
+      {% if job.status != 'ignored' %}
+      <form method="post" action="/jobs/{{ job.id }}/status">
+        <input type="hidden" name="status" value="ignored">
+        <input type="hidden" name="redirect_to" value="{{ request.url }}">
+        <button type="submit" class="btn btn-ghost btn-sm" title="Ignorer">✕</button>
+      </form>
+      {% endif %}
+
+      {% if job.status == 'liked' %}
+      <a href="/jobs/{{ job.id }}/cv" class="btn btn-primary btn-sm" title="Générer CV">📄 CV</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_script %}
+  if ({{ 'true' if scrape_status.running else 'false' }}) startPolling();
+{% endblock %}

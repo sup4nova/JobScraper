@@ -1,104 +1,153 @@
 """
-LinkedIn scraper — guest API endpoint (HTTP only, no browser needed)
+LinkedIn scraper - undetected-chromedriver + Selenium
+Same stack as Indeed to avoid asyncio/Playwright conflicts on Windows.
 """
 import time
 import random
-import urllib.request
-import urllib.error
-from urllib.parse import urlencode
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote_plus
 
+import undetected_chromedriver as uc
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
 
-GUEST_API = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
 
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0 Safari/537.36"
-    ),
-    "Accept": "text/html",
-}
+BASE_SEARCH = "https://www.linkedin.com/jobs/search"
+
+_SALARY_KEYWORDS = ["€", "k€", "eur", "salaire", "rémunération", "par an", "par mois", "$"]
+_EDU_KEYWORDS    = ["bac", "bts", "dut", "licence", "master", "ingénieur",
+                    "doctorat", "cap", "bep", "niveau"]
 
 
 class LinkedInScraper:
     source_name = "linkedin"
 
-    def __init__(self, query: str, city: str = "", limit: int = 20):
+    def __init__(self, query: str, city: str, limit: int = 20):
         self.query = query
         self.city  = city
         self.limit = limit
 
+    # ── Browser setup ────────────────────────────────────────────────────────
+
+    def _make_driver(self):
+        options = uc.ChromeOptions()
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--remote-debugging-port=0")  # random port to avoid conflicts with other Chrome instances
+        options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+        options.add_argument(f"user-agent={UserAgent().random}")
+
+        driver = uc.Chrome(
+            service=Service(ChromeDriverManager().install()),
+            options=options,
+            version_main=None,
+        )
+        return driver
+    # ── Entry points ──────────────────────────────────────────────────────────
+
     def scrape(self) -> list[dict]:
-        jobs = []
-        seen = set()
-        start = 0
-
-        # The endpoint paginates in batches of 25 via the `start` param
-        while len(jobs) < self.limit and start < 200:
-            cards = self._fetch_page(start)
-            if not cards:
-                break  # no more results or LinkedIn cut us off
-
-            for card in cards:
-                if len(jobs) >= self.limit:
-                    break
-                job = self._parse_card(card)
-                if job and job["url"] not in seen:
-                    seen.add(job["url"])
-                    jobs.append(job)
-                    print(f"    LinkedIn — {job['title']} @ {job['company']}")
-
-            start += 25
-            time.sleep(random.uniform(1.5, 3))  # breathe to avoid 429s
-
-        print(f"LinkedIn — {len(jobs)} jobs found")
-        return jobs
+        """Synchronous version, used by the CLI."""
+        driver = self._make_driver()
+        try:
+            return self._search(driver)
+        finally:
+            driver.quit()
 
     async def scrape_async(self) -> list[dict]:
-        return self.scrape()
+        """Async wrapper, called by FastAPI."""
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as pool:
+            return await loop.run_in_executor(pool, self.scrape)
 
-    # ── HTTP ──────────────────────────────────────────────────────────────────
+    # ── Search ───────────────────────────────────────────────────────────────
 
-    def _fetch_page(self, start: int):
-        params = {
-            "keywords": self.query,
-            "location": self.city or "France",
-            "start": start,
-        }
-        url = f"{GUEST_API}?{urlencode(params)}"
-        req = urllib.request.Request(url, headers=_HEADERS)
-        try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                soup = BeautifulSoup(resp.read(), "html.parser")
-        except urllib.error.HTTPError as e:
-            # 999 = LinkedIn anti-bot block; 400 = end of pagination
-            print(f"LinkedIn HTTP {e.code} at start={start}")
-            return []
-        except Exception as e:
-            print(f"LinkedIn error: {type(e).__name__}: {e}")
-            return []
+    def _search(self, driver) -> list[dict]:
+        url = (
+            f"{BASE_SEARCH}"
+            f"?keywords={quote_plus(self.query)}"
+            f"&location={quote_plus(self.city)}"
+        )
+        driver.get(url)
+        time.sleep(random.uniform(2, 4))
 
-        return soup.select("li") or soup.select("div.base-card")
+        # scroll to trigger lazy loading
+        for _ in range(4):
+            driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8)")
+            time.sleep(random.uniform(0.7, 1.2))
 
-    # ── Parsing ───────────────────────────────────────────────────────────────
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        cards = (
+            soup.select("ul.jobs-search__results-list li")
+            or soup.select("div.base-card")
+            or soup.select("li.result-card")
+        )
+
+        jobs      = []
+        seen_urls = set()
+
+        for card in cards:
+            if len(jobs) >= self.limit:
+                break
+            job = self._parse_card(card)
+            if job and job["url"] not in seen_urls:
+                seen_urls.add(job["url"])
+                jobs.append(job)
+                print(f"    LinkedIn - {job['title']} @ {job['company']}")
+
+        return jobs
+
+    # ── Card parsing ─────────────────────────────────────────────────────────
 
     def _parse_card(self, card) -> dict | None:
-        title_el = card.select_one("h3.base-search-card__title")
-        link_el  = card.select_one("a.base-card__full-link") or card.select_one("a[href*='/jobs/view/']")
+        title_el = (
+            card.select_one("h3.base-search-card__title")
+            or card.select_one("h3")
+        )
+        link_el = (
+            card.select_one("a.base-card__full-link")
+            or card.select_one("a[href*='/jobs/view/']")
+        )
         if not title_el or not link_el:
             return None
 
         title = title_el.get_text(strip=True)
         url   = link_el.get("href", "").split("?")[0]
-        if not title or not url:
+        if not url:
             return None
 
-        company_el = card.select_one("h4.base-search-card__subtitle")
-        company    = company_el.get_text(strip=True) if company_el else ""
+        company_el = (
+            card.select_one("h4.base-search-card__subtitle")
+            or card.select_one("a.hidden-nested-link")
+        )
+        company = company_el.get_text(strip=True) if company_el else ""
 
-        loc_el = card.select_one(".job-search-card__location")
-        city   = loc_el.get_text(strip=True) if loc_el else ""
+        location_el = card.select_one(".job-search-card__location")
+        city = location_el.get_text(strip=True) if location_el else ""
+
+        meta_el = card.select_one(".job-search-card__listdate")
+        contract_type = meta_el.get_text(strip=True) if meta_el else ""
+
+        salary    = ""
+        education = ""
+        for tag_el in card.select(".job-search-card__benefits span"):
+            tag = tag_el.get_text(strip=True)
+            tag_lower = tag.lower()
+            if any(kw in tag_lower for kw in _SALARY_KEYWORDS):
+                salary = tag
+            elif any(kw in tag_lower for kw in _EDU_KEYWORDS):
+                education = tag
+
+        easily_apply = bool(card.select_one(".job-search-card__easy-apply-label"))
 
         return {
             "source":        "linkedin",
@@ -106,18 +155,9 @@ class LinkedInScraper:
             "url":           url,
             "company":       company,
             "city":          city,
-            "salary":        "",
-            "education":     "",
-            "contract_type": "",
-            "easily_apply":  False,
+            "salary":        salary,
+            "education":     education,
+            "contract_type": contract_type,
+            "easily_apply":  easily_apply,
             "description":   "",
         }
-
-
-if __name__ == "__main__":
-    scraper = LinkedInScraper(query="devops", city="France", limit=10)
-    jobs = scraper.scrape()
-    print(f"\n{len(jobs)} jobs:")
-    for job in jobs:
-        print(f"  - {job['title']} @ {job['company']} ({job['city']})")
-        print(f"    🔗 {job['url']}")

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Générer CV — {{ job.title }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto;">
+  <div style="margin-bottom: 1rem;">
+    <a href="/jobs/{{ job.id }}" style="color: var(--muted); font-size: 0.85rem;">← Retour à l'offre</a>
+  </div>
+
+  <h1 style="font-size: 1.4rem; margin-bottom: 0.3rem;">📄 Générer mon CV</h1>
+  <p style="color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem;">
+    Poste visé : <strong style="color: var(--text);">{{ job.title }}</strong>
+    chez <strong style="color: var(--text);">{{ job.company or '—' }}</strong>
+  </p>
+
+  {% if error %}
+  <div class="alert" style="background: rgba(255,77,109,0.15); border-color: rgba(255,77,109,0.3); color: #ff4d6d; margin-bottom: 1rem;">
+    ⚠ {{ error }}
+  </div>
+  {% endif %}
+
+  <!-- Résumé de l'offre -->
+  <div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+    <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem;">Infos de l'annonce (injectées dans le CV)</p>
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.85rem;">
+      {% if job.city %}<span>📍 {{ job.city }}</span>{% endif %}
+      {% if job.salary %}<span>💰 {{ job.salary }}</span>{% endif %}
+      {% if job.contract_type %}<span>📄 {{ job.contract_type }}</span>{% endif %}
+      {% if job.education %}<span>🎓 {{ job.education }}</span>{% endif %}
+    </div>
+  </div>
+
+  <form method="post" action="/jobs/{{ job.id }}/cv/generate">
+    <div class="card">
+      <p style="font-weight: 600; margin-bottom: 1rem;">Tes informations personnelles</p>
+      <div class="cv-form">
+
+        <div class="form-group">
+          <label>Nom complet *</label>
+          <input type="text" name="cv_name" required placeholder="Jean Dupont">
+        </div>
+
+        <div class="form-group">
+          <label>Titre / Poste visé *</label>
+          <input type="text" name="cv_title" required placeholder="Développeur Python Senior" value="{{ job.title }}">
+        </div>
+
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" name="cv_email" required placeholder="jean@example.com">
+        </div>
+
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="text" name="cv_phone" placeholder="+33 6 12 34 56 78">
+        </div>
+
+        <div class="form-group">
+          <label>Ville / Localisation</label>
+          <input type="text" name="cv_location" placeholder="Paris, France">
+        </div>
+
+        <div class="form-group">
+          <label>GitHub (optionnel)</label>
+          <input type="text" name="cv_github" placeholder="github.com/monpseudo">
+        </div>
+
+        <div class="form-group full-width">
+          <label>LinkedIn (optionnel)</label>
+          <input type="text" name="cv_linkedin" placeholder="linkedin.com/in/monprofil">
+        </div>
+
+        <div class="form-group full-width">
+          <label>Accroche personnalisée (ajustée pour ce poste)</label>
+          <textarea name="cv_summary" rows="3" placeholder="Développeur passionné avec 5 ans d'expérience en Python et data engineering, je cherche à rejoindre une équipe…"></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <label>Compétences (une par ligne)</label>
+          <textarea name="cv_skills" rows="4" placeholder="Python, FastAPI, PostgreSQL&#10;Docker, Kubernetes&#10;Machine Learning, scikit-learn&#10;Git, CI/CD"></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <label>Expériences professionnelles</label>
+          <textarea name="cv_experience" rows="8" placeholder="2022–2024 | Développeur Backend | Startup XYZ | Paris&#10;- Développement d'une API REST avec FastAPI&#10;- Mise en place du CI/CD avec GitHub Actions&#10;&#10;2020–2022 | Développeur Junior | Agence ABC | Lyon&#10;- …"></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <label>Formation</label>
+          <textarea name="cv_education" rows="3" placeholder="2020 | Master Informatique | Université Paris-Saclay&#10;2018 | Licence Info | Université Lyon 1"></textarea>
+        </div>
+
+      </div>
+
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <a href="/jobs/{{ job.id }}" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn btn-primary">📥 Générer le PDF</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -9,6 +9,7 @@ whatever's on the system (which is what the Docker image relies on).
 """
 import os
 import shutil
+import tempfile
 
 _CANDIDATE_PATHS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -18,6 +19,11 @@ _CANDIDATE_PATHS = [
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
 ]
+
+# Cloudflare shows this interstitial while it runs its JS/browser challenge.
+# Checking for it lets scrapers tell "still blocked" apart from "site markup
+# changed", which otherwise look identical (both are a missing-element timeout).
+_CF_MARKERS = ("just a moment", "cf-chl", "challenges.cloudflare.com", "cf-browser-verification")
 
 
 def chrome_binary_location() -> str | None:
@@ -35,3 +41,26 @@ def chrome_version_main() -> int | None:
     """Optional pin via CHROME_VERSION_MAIN; None lets uc.Chrome() auto-detect."""
     val = os.getenv("CHROME_VERSION_MAIN")
     return int(val) if val else None
+
+
+def chrome_profile_dir(name: str) -> str:
+    """
+    Persistent user-data-dir so cookies (notably Cloudflare's `cf_clearance`)
+    survive across scrape cycles instead of re-triggering the JS challenge
+    every single run.
+
+    /app/data is the volume the bot container already mounts (see
+    deploy_bot.yml) for seen_jobs/subscribers, so profiles persist across
+    container restarts there too. Falls back to the OS temp dir for local
+    dev where that mount doesn't exist.
+    """
+    base = "/app/data" if os.path.isdir("/app/data") else tempfile.gettempdir()
+    path = os.path.join(base, f"uc_profile_{name}")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def looks_like_cloudflare_challenge(page_source: str) -> bool:
+    """Heuristic check for Cloudflare's interstitial in the current page source."""
+    lower = (page_source or "").lower()
+    return any(marker in lower for marker in _CF_MARKERS)

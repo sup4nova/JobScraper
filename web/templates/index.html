@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}JobScrapper — Nouveau scraping{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 3rem auto;">
+  <h1 style="font-size: 1.8rem; margin-bottom: 0.4rem;">Trouver des offres</h1>
+  <p style="color: var(--muted); margin-bottom: 2rem;">Scrape Indeed, LinkedIn et Welcome to the Jungle en une fois.</p>
+
+  <div class="card" style="padding: 2rem;">
+    <form method="post" action="/scrape" id="scrapeForm">
+      <div style="display: grid; gap: 1.25rem;">
+
+        <div class="form-group">
+          <label>Poste recherché</label>
+          <input type="text" name="query" placeholder="ex: développeur Python, data analyst, UX designer…" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label>Ville</label>
+            <input type="text" name="city" placeholder="Paris, Lyon, Remote…" required>
+          </div>
+          <div class="form-group">
+            <label>Nombre d'offres max par source</label>
+            <input type="number" name="limit" value="20" min="5" max="100">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Sources</label>
+          <div class="sources-check">
+            <label><input type="checkbox" name="sources" value="indeed" checked> Indeed</label>
+            <label><input type="checkbox" name="sources" value="linkedin" checked> LinkedIn</label>
+            <label><input type="checkbox" name="sources" value="wttj" checked> Welcome to the Jungle</label>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem;">
+          <a href="/jobs" class="btn btn-ghost">Voir les offres existantes →</a>
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+             Lancer le scraping
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div style="margin-top: 2rem; color: var(--muted); font-size: 0.82rem; line-height: 1.6;">
+    <strong style="color: var(--text);">ℹ LinkedIn :</strong> scraping en mode non-connecté (offres publiques uniquement).
+    Zéro risque pour ton compte — on n'utilise pas de credentials.
+  </div>
+</div>
+{% endblock %}
+
+{% block page_script %}
+  document.getElementById('scrapeForm').addEventListener('submit', () => {
+    document.getElementById('submitBtn').textContent = '⏳ Scraping…';
+    document.getElementById('submitBtn').disabled = true;
+    startPolling();
+  });
+{% endblock %}
